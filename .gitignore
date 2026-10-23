@@ -1,0 +1,18 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Windows / .NET
+**/bin/
+**/obj/
+*.user
+
+# macOS / Xcode
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
