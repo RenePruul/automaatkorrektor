@@ -2,6 +2,13 @@
 .idea/
 .vscode/
 
+# Local coding-agent configuration
+.agents/
+.codex/
+.claude/
+AGENTS.md
+CLAUDE.md
+
 # Windows / .NET
 **/bin/
 **/obj/
