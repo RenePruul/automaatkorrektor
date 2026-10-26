@@ -101,6 +101,10 @@ actor AccessibilitySelectedTextReader: SelectionReading {
     let initialElement = try await focusedElementWithOnDemandActivation()
     do {
       let initialApplication = try await supportedApplication(for: initialElement)
+      guard await accessibility.frontmostApplicationIdentity() == initialApplication.identity
+      else {
+        throw AccessibilitySelectionError.focusChanged
+      }
       let initialSnapshot = try await accessibility.snapshot(of: initialElement)
       try Self.requireEligible(initialSnapshot)
 

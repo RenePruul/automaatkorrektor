@@ -54,6 +54,7 @@ struct AccessibilitySelectedTextReaderTests {
 
     #expect(selectedText == SelectedText("Tere"))
     #expect(accessibility.applicationIdentityLookupCount == 2)
+    #expect(accessibility.frontmostApplicationIdentityLookupCount == 2)
     #expect(accessibility.selectedRangeReadCount == 1)
     #expect(accessibility.selectedTextReadCount == 1)
   }
@@ -84,6 +85,40 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.activationCount == 0)
     #expect(accessibility.applicationIdentityLookupCount == 1)
     #expect(await detector.receivedTexts.isEmpty)
+  }
+
+  @Test(
+    "invalid initial frontmost identity fails before metadata or content access",
+    arguments: FrontmostApplicationRaceFixture.cases
+  )
+  fileprivate func invalidInitialFrontmostApplicationFailsClosed(
+    fixture: FrontmostApplicationRaceFixture
+  ) async {
+    let textEdit = AXApplicationIdentity(
+      processIdentifier: 42,
+      bundleIdentifier: "com.apple.TextEdit"
+    )
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea],
+      frontmostApplicationIdentity: fixture.identity,
+      applicationIdentities: [textEdit]
+    )
+    let detector = SelectionRecordingDetector()
+    let useCase = LanguageCheckUseCase(
+      selectionReader: AccessibilitySelectedTextReader(accessibility: accessibility),
+      languageDetector: detector
+    )
+
+    await #expect(throws: AccessibilitySelectionError.focusChanged) {
+      try await useCase.check()
+    }
+
+    #expect(accessibility.frontmostApplicationIdentityLookupCount == 1)
+    #expect(accessibility.snapshotReadCount == 0)
+    #expect(accessibility.selectedRangeReadCount == 0)
+    #expect(accessibility.selectedTextReadCount == 0)
+    #expect(await detector.receivedTexts.isEmpty)
+    #expect(accessibility.retainedElementCount == 0)
   }
 
   @Test(
@@ -121,6 +156,9 @@ struct AccessibilitySelectedTextReaderTests {
     }
 
     #expect(accessibility.activationCount == (fixture.allowsRead ? 1 : 0))
+    #expect(
+      accessibility.frontmostApplicationIdentityLookupCount == (fixture.allowsRead ? 3 : 1)
+    )
     #expect(accessibility.selectedRangeReadCount == (fixture.allowsRead ? 1 : 0))
     #expect(accessibility.selectedTextReadCount == (fixture.allowsRead ? 1 : 0))
   }
@@ -170,7 +208,7 @@ struct AccessibilitySelectedTextReaderTests {
     let verdict = try await useCase.check()
 
     #expect(verdict == .estonian)
-    #expect(accessibility.frontmostApplicationIdentityLookupCount == 1)
+    #expect(accessibility.frontmostApplicationIdentityLookupCount == 2)
     #expect(await detector.receivedTexts == ["Tere"])
     #expect(accessibility.retainedElementCount == 0)
   }
@@ -189,7 +227,8 @@ struct AccessibilitySelectedTextReaderTests {
     let accessibility = AXReaderSpy(
       snapshots: [.textEditTextArea, .textEditTextArea],
       selectedText: "KANAARILIND-FRONTMOST-RACE",
-      frontmostApplicationIdentity: fixture.identity,
+      frontmostApplicationIdentity: textEdit,
+      frontmostApplicationIdentities: [textEdit, fixture.identity],
       applicationIdentities: [textEdit, textEdit]
     )
     let detector = SelectionRecordingDetector()
@@ -202,7 +241,7 @@ struct AccessibilitySelectedTextReaderTests {
       try await useCase.check()
     }
 
-    #expect(accessibility.frontmostApplicationIdentityLookupCount == 1)
+    #expect(accessibility.frontmostApplicationIdentityLookupCount == 2)
     #expect(accessibility.selectedTextReadCount == 1)
     #expect(await detector.receivedTexts.isEmpty)
     #expect(accessibility.retainedElementCount == 0)
@@ -231,6 +270,7 @@ struct AccessibilitySelectedTextReaderTests {
 
     #expect(selectedText == SelectedText("BROWSER-FIXTURE"))
     #expect(accessibility.activationCount == 1)
+    #expect(accessibility.frontmostApplicationIdentityLookupCount == 3)
     #expect(accessibility.focusedElementRequestCount == 3)
     #expect(accessibility.selectedTextReadCount == 1)
     #expect(accessibility.valueReadCount == 0)
@@ -264,6 +304,9 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(verdict == .estonian)
     #expect(await detector.receivedTexts == [fixture.selection])
     #expect(accessibility.activationCount == (fixture.needsActivation ? 1 : 0))
+    #expect(
+      accessibility.frontmostApplicationIdentityLookupCount == (fixture.needsActivation ? 3 : 2)
+    )
     #expect(accessibility.selectedRangeReadCount == 1)
     #expect(accessibility.selectedTextReadCount == 1)
     #expect(accessibility.valueReadCount == 0)
@@ -834,6 +877,7 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   private var focusedElementErrors: [AccessibilitySelectionError?]
   private let snapshotError: AccessibilitySelectionError?
   private let frontmostIdentity: AXApplicationIdentity?
+  private var frontmostIdentities: [AXApplicationIdentity?]
   private var applicationIdentities: [AXApplicationIdentity?]
   private var retainedElementReferences = 0
   private(set) var acquiredElementCount = 0
@@ -842,6 +886,7 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   private(set) var frontmostApplicationIdentityLookupCount = 0
   private(set) var focusedElementRequestCount = 0
   private(set) var releasedElementCount = 0
+  private(set) var snapshotReadCount = 0
   private(set) var selectedRangeReadCount = 0
   private(set) var selectedTextReadCount = 0
   private(set) var valueReadCount = 0
@@ -859,6 +904,7 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
       processIdentifier: 42,
       bundleIdentifier: "com.apple.TextEdit"
     ),
+    frontmostApplicationIdentities: [AXApplicationIdentity?] = [],
     applicationIdentities: [AXApplicationIdentity?] = []
   ) {
     self.snapshots = snapshots
@@ -870,6 +916,7 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
     self.focusedElementErrors = focusedElementErrors
     self.snapshotError = snapshotError
     frontmostIdentity = frontmostApplicationIdentity
+    frontmostIdentities = frontmostApplicationIdentities
     self.applicationIdentities = applicationIdentities
   }
 
@@ -878,6 +925,8 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   func frontmostApplicationIdentity() -> AXApplicationIdentity? {
     lock.withLock {
       frontmostApplicationIdentityLookupCount += 1
+      if frontmostIdentities.count > 1 { return frontmostIdentities.removeFirst() }
+      if let identity = frontmostIdentities.first { return identity }
       return frontmostIdentity
     }
   }
@@ -917,6 +966,7 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   }
 
   func snapshot(of element: AXElementID) throws -> AXSnapshot {
+    lock.withLock { snapshotReadCount += 1 }
     if let snapshotError { throw snapshotError }
     return lock.withLock {
       if snapshots.count > 1 { return snapshots.removeFirst() }
