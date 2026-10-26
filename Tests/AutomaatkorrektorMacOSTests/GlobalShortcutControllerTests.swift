@@ -129,6 +129,50 @@ struct GlobalShortcutControllerTests {
     #expect(lifecycle.isPopoverPresented)
     #expect(model.state == .verdict(.estonian))
   }
+
+  @Test("dismissing shortcut feedback cancels the active check")
+  func cancellation() async {
+    let model = LanguageCheckViewModel(
+      useCase: LanguageCheckUseCase(
+        selectionReader: CancellableShortcutSelectionReader(),
+        languageDetector: ShortcutDetector()
+      ),
+      accessibilityPermission: GrantedShortcutPermissionController()
+    )
+    let lifecycle = ApplicationLifecycleController(
+      model: model,
+      terminator: ShortcutTerminator()
+    )
+    let task = Task { await lifecycle.handleShortcut() }
+    await Task.yield()
+    #expect(model.state == .checking)
+
+    await lifecycle.dismissPopover()
+    await task.value
+
+    #expect(!lifecycle.isPopoverPresented)
+    #expect(model.state == .waiting)
+  }
+
+  @Test("registration failure does not disable the menu language check")
+  func registrationFailureLeavesCheckUsable() async {
+    let backend = ShortcutBackendSpy()
+    backend.failingShortcuts = [.default]
+    let controller = GlobalShortcutController(backend: backend)
+    controller.start {}
+
+    let model = LanguageCheckViewModel(
+      useCase: LanguageCheckUseCase(
+        selectionReader: ShortcutSelectionReader(),
+        languageDetector: ShortcutDetector()
+      ),
+      accessibilityPermission: GrantedShortcutPermissionController()
+    )
+    await model.check()
+
+    #expect(controller.registrationMessage == GlobalShortcutController.failureMessage)
+    #expect(model.state == .verdict(.estonian))
+  }
 }
 
 @MainActor
@@ -218,6 +262,13 @@ private actor ControllableShortcutSelectionReader: SelectionReading {
   func resume(with text: SelectedText) {
     continuation?.resume(returning: text)
     continuation = nil
+  }
+}
+
+private actor CancellableShortcutSelectionReader: SelectionReading {
+  func readSelectedText() async throws -> SelectedText {
+    try await Task.sleep(for: .seconds(60))
+    return SelectedText("Tere")
   }
 }
 
