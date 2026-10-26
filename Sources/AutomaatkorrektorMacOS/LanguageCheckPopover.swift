@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LanguageCheckPopover: View {
   @ObservedObject var model: LanguageCheckViewModel
+  let showSettings: () -> Void
   let quit: @MainActor () async -> Void
 
   var body: some View {
@@ -20,6 +21,12 @@ struct LanguageCheckPopover: View {
         Task { await model.check() }
       }
       .disabled(model.state == .checking)
+
+      Divider()
+
+      row(title: "Seaded…", trailing: "⌘,", symbol: "gearshape") {
+        showSettings()
+      }
 
       Divider()
 

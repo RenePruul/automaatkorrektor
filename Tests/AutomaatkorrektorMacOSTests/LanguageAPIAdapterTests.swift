@@ -1,0 +1,203 @@
+import AutomaatkorrektorCore
+import Foundation
+import Testing
+
+@testable import AutomaatkorrektorMacOS
+
+@Suite("Language API adapter")
+struct LanguageAPIAdapterTests {
+  @Test("one request contains only the Unicode selected text and maps every verdict", arguments: [
+    ("jah", LanguageVerdict.estonian),
+    ("ei", LanguageVerdict.notEstonian),
+    ("ebakindel", LanguageVerdict.uncertain),
+  ])
+  func exactRequestAndVerdicts(wireVerdict: String, expected: LanguageVerdict) async throws {
+    let transport = RecordingHTTPTransport(
+      responses: [.success(response(status: 200, body: "{\"verdict\":\"\(wireVerdict)\"}"))]
+    )
+    let detector = LanguageAPIClient(
+      baseURL: { URL(string: "http://127.0.0.1:8000")! },
+      transport: transport
+    )
+
+    let verdict = try await detector.detectLanguage(of: SelectedText("Tere, õun 🍎"))
+
+    #expect(verdict == expected)
+    let requests = await transport.requests
+    #expect(requests.count == 1)
+    let request = try #require(requests.first)
+    #expect(request.url?.absoluteString == "http://127.0.0.1:8000/detect")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+    #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
+    let requestBody = try #require(request.httpBody)
+    let object = try #require(
+      JSONSerialization.jsonObject(with: requestBody) as? [String: String]
+    )
+    #expect(object == ["text": "Tere, õun 🍎"])
+  }
+
+  @Test("invalid responses map to stable failures", arguments: [
+    (200, "{\"verdict\":\"maybe\"}", LanguageCheckFailure.incompatibleService),
+    (200, "{}", LanguageCheckFailure.invalidResponse),
+    (200, "not-json", LanguageCheckFailure.invalidResponse),
+    (429, "PRIVATE SERVER BODY", LanguageCheckFailure.rateLimited),
+    (503, "PRIVATE SERVER BODY", LanguageCheckFailure.serverFailure),
+    (404, "PRIVATE SERVER BODY", LanguageCheckFailure.otherHTTPFailure),
+  ])
+  func stableResponseFailures(status: Int, body: String, expected: LanguageCheckFailure) async {
+    let transport = RecordingHTTPTransport(
+      responses: [.success(response(status: status, body: body))]
+    )
+    let detector = LanguageAPIClient(
+      baseURL: { URL(string: "http://127.0.0.1:8000")! },
+      transport: transport
+    )
+
+    await #expect(throws: expected) {
+      try await detector.detectLanguage(of: SelectedText("Tere"))
+    }
+  }
+
+  @Test("transport errors map without retrying", arguments: [
+    (URLError(.timedOut), LanguageCheckFailure.timeout),
+    (URLError(.cannotConnectToHost), LanguageCheckFailure.unavailableService),
+    (URLError(.secureConnectionFailed), LanguageCheckFailure.insecureConnection),
+  ])
+  func transportFailures(error: URLError, expected: LanguageCheckFailure) async {
+    let transport = RecordingHTTPTransport(responses: [.failure(error)])
+    let detector = LanguageAPIClient(
+      baseURL: { URL(string: "https://api.example.test")! },
+      transport: transport
+    )
+
+    await #expect(throws: expected) {
+      try await detector.detectLanguage(of: SelectedText("Tere"))
+    }
+    #expect(await transport.requests.count == 1)
+  }
+
+  @Test("cancellation remains cancellation")
+  func cancellation() async {
+    let transport = RecordingHTTPTransport(responses: [.failure(CancellationError())])
+    let detector = LanguageAPIClient(
+      baseURL: { URL(string: "http://127.0.0.1:8000")! },
+      transport: transport
+    )
+
+    await #expect(throws: CancellationError.self) {
+      try await detector.detectLanguage(of: SelectedText("Tere"))
+    }
+  }
+
+  @Test("ephemeral transport has the approved privacy and deadline configuration")
+  func ephemeralConfiguration() {
+    let configuration = LanguageAPITransport.makeConfiguration()
+
+    #expect(configuration.identifier == nil)
+    #expect(configuration.timeoutIntervalForRequest == 3)
+    #expect(configuration.timeoutIntervalForResource == 3)
+    #expect(configuration.urlCache == nil)
+    #expect(configuration.requestCachePolicy == .reloadIgnoringLocalCacheData)
+    #expect(configuration.httpCookieStorage == nil)
+    #expect(configuration.urlCredentialStorage == nil)
+    #expect(configuration.httpShouldSetCookies == false)
+  }
+}
+
+@Suite("API base URL settings")
+@MainActor
+struct APIBaseURLSettingsTests {
+  @Test("the default and exact loopback HTTP addresses are accepted")
+  func loopbackPolicy() throws {
+    #expect(APIBaseURL.default.url.absoluteString == "http://127.0.0.1:8000")
+    #expect(try APIBaseURL(validating: "http://127.0.0.1:9000").url.port == 9000)
+    #expect(try APIBaseURL(validating: "http://localhost:8000").url.host == "localhost")
+    #expect(try APIBaseURL(validating: "http://[::1]:8000").url.host == "::1")
+  }
+
+  @Test("remote HTTP and URL capabilities that can leak selected text are rejected", arguments: [
+    "http://example.com",
+    "https://user:secret@example.com",
+    "https://example.com/api",
+    "https://example.com?tenant=1",
+    "https://example.com#detect",
+    "ftp://example.com",
+    "not a url",
+  ])
+  func rejectsUnsafeValues(value: String) {
+    #expect(throws: APIBaseURL.ValidationError.self) {
+      try APIBaseURL(validating: value)
+    }
+  }
+
+  @Test("a valid edit applies immediately while an invalid edit retains the prior value")
+  func immediateValidation() {
+    let storage = MemoryAPISettingsStorage()
+    let settings = APISettingsStore(storage: storage)
+
+    settings.updateBaseURL("https://language.example.ee")
+    #expect(settings.baseURL.url.absoluteString == "https://language.example.ee")
+    #expect(storage.string(forKey: APISettingsStore.storageKey) == "https://language.example.ee")
+    #expect(settings.validationMessage == nil)
+
+    settings.updateBaseURL("http://language.example.ee")
+    #expect(settings.baseURL.url.absoluteString == "https://language.example.ee")
+    #expect(storage.string(forKey: APISettingsStore.storageKey) == "https://language.example.ee")
+    #expect(settings.validationMessage != nil)
+  }
+
+  @Test("an invalid persisted value recovers to and persists the default")
+  func recoversStoredValue() {
+    let storage = MemoryAPISettingsStorage(values: [
+      APISettingsStore.storageKey: "http://remote.example.ee"
+    ])
+
+    let settings = APISettingsStore(storage: storage)
+
+    #expect(settings.baseURL == .default)
+    #expect(storage.string(forKey: APISettingsStore.storageKey) == "http://127.0.0.1:8000")
+  }
+}
+
+private actor RecordingHTTPTransport: LanguageAPITransporting {
+  private(set) var requests: [URLRequest] = []
+  private var responses: [Result<(Data, HTTPURLResponse), any Error>]
+
+  init(responses: [Result<(Data, HTTPURLResponse), any Error>]) {
+    self.responses = responses
+  }
+
+  func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    requests.append(request)
+    return try responses.removeFirst().get()
+  }
+}
+
+private func response(status: Int, body: String) -> (Data, HTTPURLResponse) {
+  (
+    Data(body.utf8),
+    HTTPURLResponse(
+      url: URL(string: "http://127.0.0.1:8000/detect")!,
+      statusCode: status,
+      httpVersion: "HTTP/1.1",
+      headerFields: ["Content-Type": "application/json"]
+    )!
+  )
+}
+
+private final class MemoryAPISettingsStorage: APISettingsPersisting, @unchecked Sendable {
+  private var values: [String: String]
+
+  init(values: [String: String] = [:]) {
+    self.values = values
+  }
+
+  func string(forKey key: String) -> String? {
+    values[key]
+  }
+
+  func set(_ value: String, forKey key: String) {
+    values[key] = value
+  }
+}

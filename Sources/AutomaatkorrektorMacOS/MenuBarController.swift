@@ -5,15 +5,18 @@ import SwiftUI
 final class MenuBarController: NSObject, NSPopoverDelegate {
   private let model: LanguageCheckViewModel
   private let lifecycle: ApplicationLifecycleController
+  private let settingsWindowController: SettingsWindowController
   private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let popover = NSPopover()
 
   init(
     model: LanguageCheckViewModel,
-    lifecycle: ApplicationLifecycleController
+    lifecycle: ApplicationLifecycleController,
+    settings: APISettingsStore
   ) {
     self.model = model
     self.lifecycle = lifecycle
+    settingsWindowController = SettingsWindowController(settings: settings)
     super.init()
   }
 
@@ -32,6 +35,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     popover.contentViewController = NSHostingController(
       rootView: LanguageCheckPopover(
         model: model,
+        showSettings: { [weak self] in
+          self?.settingsWindowController.show()
+        },
         quit: { [weak lifecycle] in
           guard let lifecycle else { return }
           await lifecycle.quit()

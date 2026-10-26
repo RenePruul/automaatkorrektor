@@ -16,9 +16,12 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApplication.shared.setActivationPolicy(.accessory)
 
+    let settings = APISettingsStore()
     let useCase = LanguageCheckUseCase(
       selectionReader: DemoSelectionReader(),
-      languageDetector: DemoLanguageDetector()
+      languageDetector: LanguageAPIClient(
+        baseURL: { await settings.currentBaseURL() }
+      )
     )
     let model = LanguageCheckViewModel(useCase: useCase)
     let lifecycle = ApplicationLifecycleController(
@@ -27,7 +30,8 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
     )
     let controller = MenuBarController(
       model: model,
-      lifecycle: lifecycle
+      lifecycle: lifecycle,
+      settings: settings
     )
 
     lifecycle.launch()
@@ -47,12 +51,5 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
 private actor DemoSelectionReader: SelectionReading {
   func readSelectedText() async throws -> SelectedText {
     SelectedText("Tere maailm")
-  }
-}
-
-private actor DemoLanguageDetector: LanguageDetecting {
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
-    try await Task.sleep(for: .milliseconds(450))
-    return .estonian
   }
 }
