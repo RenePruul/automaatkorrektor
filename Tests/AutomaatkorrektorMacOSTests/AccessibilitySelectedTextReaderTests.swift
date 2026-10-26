@@ -29,13 +29,136 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.retainedElementCount == 0)
   }
 
+  @Test(
+    "only the exact v0.1 application allowlist may return selected text",
+    arguments: [
+      "com.apple.TextEdit",
+      "com.apple.Safari",
+      "com.google.Chrome",
+    ]
+  )
+  func exactSupportedApplicationAllowlist(bundleIdentifier: String) async throws {
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea, .textEditTextArea],
+      applicationIdentities: [
+        AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: bundleIdentifier),
+        AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: bundleIdentifier),
+      ]
+    )
+
+    let selectedText = try await AccessibilitySelectedTextReader(
+      accessibility: accessibility
+    ).readSelectedText()
+
+    #expect(selectedText == SelectedText("Tere"))
+    #expect(accessibility.applicationIdentityLookupCount == 2)
+    #expect(accessibility.selectedRangeReadCount == 1)
+    #expect(accessibility.selectedTextReadCount == 1)
+  }
+
+  @Test(
+    "unsupported, missing, and malformed application identities fail before content access",
+    arguments: UnsupportedApplicationFixture.cases
+  )
+  fileprivate func unsupportedApplicationIdentityFailsClosed(
+    fixture: UnsupportedApplicationFixture
+  ) async {
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea],
+      applicationIdentities: [fixture.identity]
+    )
+    let detector = SelectionRecordingDetector()
+    let useCase = LanguageCheckUseCase(
+      selectionReader: AccessibilitySelectedTextReader(accessibility: accessibility),
+      languageDetector: detector
+    )
+
+    await #expect(throws: AccessibilitySelectionError.unsupportedApplication) {
+      try await useCase.check()
+    }
+
+    #expect(accessibility.selectedRangeReadCount == 0)
+    #expect(accessibility.selectedTextReadCount == 0)
+    #expect(accessibility.activationCount == 0)
+    #expect(accessibility.applicationIdentityLookupCount == 1)
+    #expect(await detector.receivedTexts.isEmpty)
+  }
+
+  @Test(
+    "on-demand activation runs only for frontmost stable Google Chrome",
+    arguments: ActivationFixture.cases
+  )
+  fileprivate func activationIsChromeOnly(fixture: ActivationFixture) async throws {
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea, .textEditTextArea],
+      focusedElementErrors: [.noFocusedControl, nil, nil],
+      frontmostApplicationIdentity: fixture.identity,
+      applicationIdentities: fixture.allowsRead
+        ? [
+          AXApplicationIdentity(
+            processIdentifier: 42,
+            bundleIdentifier: "com.google.Chrome"
+          ),
+          AXApplicationIdentity(
+            processIdentifier: 42,
+            bundleIdentifier: "com.google.Chrome"
+          ),
+        ] : []
+    )
+
+    if fixture.allowsRead {
+      _ = try await AccessibilitySelectedTextReader(
+        accessibility: accessibility
+      ).readSelectedText()
+    } else {
+      await #expect(throws: (any Error).self) {
+        try await AccessibilitySelectedTextReader(
+          accessibility: accessibility
+        ).readSelectedText()
+      }
+    }
+
+    #expect(accessibility.activationCount == (fixture.allowsRead ? 1 : 0))
+    #expect(accessibility.selectedRangeReadCount == (fixture.allowsRead ? 1 : 0))
+    #expect(accessibility.selectedTextReadCount == (fixture.allowsRead ? 1 : 0))
+  }
+
+  @Test("application identity is revalidated after capture before networking")
+  func applicationIdentityRaceFailsClosed() async {
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea, .textEditTextArea],
+      selectedText: "KANAARILIND-APP-RACE",
+      applicationIdentities: [
+        AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "com.apple.TextEdit"),
+        AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "com.example.Unknown"),
+      ]
+    )
+    let detector = SelectionRecordingDetector()
+    let useCase = LanguageCheckUseCase(
+      selectionReader: AccessibilitySelectedTextReader(accessibility: accessibility),
+      languageDetector: detector
+    )
+
+    await #expect(throws: AccessibilitySelectionError.focusChanged) {
+      try await useCase.check()
+    }
+
+    #expect(accessibility.selectedTextReadCount == 1)
+    #expect(await detector.receivedTexts.isEmpty)
+    #expect(accessibility.retainedElementCount == 0)
+  }
+
   @Test("a Chrome field is reacquired from system focus after on-demand activation")
   func chromeSelectionAfterActivation() async throws {
     let accessibility = AXReaderSpy(
       snapshots: [.textEditTextArea, .textEditTextArea],
       selectedRange: AXTextRange(location: 0, length: 16),
       selectedText: "BROWSER-FIXTURE",
-      focusedElementErrors: [.noFocusedControl, nil, nil]
+      focusedElementErrors: [.noFocusedControl, nil, nil],
+      applicationIdentities: [
+        AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "com.google.Chrome"),
+        AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "com.google.Chrome"),
+      ]
     )
 
     let selectedText = try await AccessibilitySelectedTextReader(
@@ -54,11 +177,17 @@ struct AccessibilitySelectedTextReaderTests {
     arguments: BrowserFixture.supportedCases
   )
   fileprivate func supportedBrowserFields(fixture: BrowserFixture) async throws {
+    let identity = AXApplicationIdentity(
+      processIdentifier: 42,
+      bundleIdentifier: fixture.bundleIdentifier
+    )
     let accessibility = AXReaderSpy(
       snapshots: [fixture.snapshot, fixture.snapshot],
       selectedRange: AXTextRange(location: 0, length: fixture.selection.utf16.count),
       selectedText: fixture.selection,
-      focusedElementErrors: fixture.needsActivation ? [.noFocusedControl, nil, nil] : []
+      focusedElementErrors: fixture.needsActivation ? [.noFocusedControl, nil, nil] : [],
+      frontmostApplicationIdentity: identity,
+      applicationIdentities: [identity, identity]
     )
     let detector = SelectionRecordingDetector()
     let useCase = LanguageCheckUseCase(
@@ -344,10 +473,91 @@ private struct AXFixture: Sendable, CustomTestStringConvertible {
   ]
 }
 
+private struct UnsupportedApplicationFixture: Sendable, CustomTestStringConvertible {
+  let name: String
+  let identity: AXApplicationIdentity?
+
+  var testDescription: String { name }
+
+  static let cases: [UnsupportedApplicationFixture] = [
+    UnsupportedApplicationFixture(name: "missing", identity: nil),
+    UnsupportedApplicationFixture(
+      name: "empty bundle identifier",
+      identity: AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "")
+    ),
+    UnsupportedApplicationFixture(
+      name: "lookalike Chrome identifier",
+      identity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.google.Chrome.beta"
+      )
+    ),
+    UnsupportedApplicationFixture(
+      name: "unsupported application",
+      identity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.microsoft.Word"
+      )
+    ),
+    UnsupportedApplicationFixture(
+      name: "mismatched process",
+      identity: AXApplicationIdentity(
+        processIdentifier: 99,
+        bundleIdentifier: "com.apple.TextEdit"
+      )
+    ),
+  ]
+}
+
+private struct ActivationFixture: Sendable, CustomTestStringConvertible {
+  let name: String
+  let identity: AXApplicationIdentity?
+  let allowsRead: Bool
+
+  var testDescription: String { name }
+
+  static let cases: [ActivationFixture] = [
+    ActivationFixture(
+      name: "Google Chrome",
+      identity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.google.Chrome"
+      ),
+      allowsRead: true
+    ),
+    ActivationFixture(
+      name: "TextEdit",
+      identity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.apple.TextEdit"
+      ),
+      allowsRead: false
+    ),
+    ActivationFixture(
+      name: "Safari",
+      identity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.apple.Safari"
+      ),
+      allowsRead: false
+    ),
+    ActivationFixture(
+      name: "unsupported",
+      identity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.example.Unknown"
+      ),
+      allowsRead: false
+    ),
+    ActivationFixture(name: "missing", identity: nil, allowsRead: false),
+  ]
+}
+
 private struct BrowserFixture: Sendable, CustomTestStringConvertible {
   let name: String
   let snapshot: AXSnapshot
   let selection: String
+  let bundleIdentifier: String
   let needsActivation: Bool
 
   var testDescription: String { name }
@@ -357,24 +567,28 @@ private struct BrowserFixture: Sendable, CustomTestStringConvertible {
       name: "Safari text input",
       snapshot: .browserTextField,
       selection: "SYNTHETIC-BROWSER-FIXTURE-SAFARI-INPUT",
+      bundleIdentifier: "com.apple.Safari",
       needsActivation: false
     ),
     BrowserFixture(
       name: "Safari textarea",
       snapshot: .browserTextArea,
       selection: "SYNTHETIC-BROWSER-FIXTURE-SAFARI-TEXTAREA",
+      bundleIdentifier: "com.apple.Safari",
       needsActivation: false
     ),
     BrowserFixture(
       name: "Chrome text input",
       snapshot: .browserTextField,
       selection: "SYNTHETIC-BROWSER-FIXTURE-CHROME-INPUT",
+      bundleIdentifier: "com.google.Chrome",
       needsActivation: true
     ),
     BrowserFixture(
       name: "Chrome search input",
       snapshot: .browserSearchField,
       selection: "SYNTHETIC-BROWSER-FIXTURE-CHROME-SEARCH",
+      bundleIdentifier: "com.google.Chrome",
       needsActivation: true
     ),
   ]
@@ -519,9 +733,12 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   private let focusedElementError: AccessibilitySelectionError?
   private var focusedElementErrors: [AccessibilitySelectionError?]
   private let snapshotError: AccessibilitySelectionError?
+  private let frontmostIdentity: AXApplicationIdentity?
+  private var applicationIdentities: [AXApplicationIdentity?]
   private var retainedElementReferences = 0
   private(set) var acquiredElementCount = 0
   private(set) var activationCount = 0
+  private(set) var applicationIdentityLookupCount = 0
   private(set) var focusedElementRequestCount = 0
   private(set) var releasedElementCount = 0
   private(set) var selectedRangeReadCount = 0
@@ -536,7 +753,12 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
     isTrusted: Bool = true,
     focusedElementError: AccessibilitySelectionError? = nil,
     focusedElementErrors: [AccessibilitySelectionError?] = [],
-    snapshotError: AccessibilitySelectionError? = nil
+    snapshotError: AccessibilitySelectionError? = nil,
+    frontmostApplicationIdentity: AXApplicationIdentity? = AXApplicationIdentity(
+      processIdentifier: 42,
+      bundleIdentifier: "com.google.Chrome"
+    ),
+    applicationIdentities: [AXApplicationIdentity?] = []
   ) {
     self.snapshots = snapshots
     self.identities = identities
@@ -546,9 +768,27 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
     self.focusedElementError = focusedElementError
     self.focusedElementErrors = focusedElementErrors
     self.snapshotError = snapshotError
+    frontmostIdentity = frontmostApplicationIdentity
+    self.applicationIdentities = applicationIdentities
   }
 
   func isTrusted() -> Bool { trusted }
+
+  func frontmostApplicationIdentity() -> AXApplicationIdentity? { frontmostIdentity }
+
+  func applicationIdentity(processIdentifier: pid_t) -> AXApplicationIdentity? {
+    lock.withLock {
+      applicationIdentityLookupCount += 1
+      if applicationIdentities.isEmpty {
+        return AXApplicationIdentity(
+          processIdentifier: processIdentifier,
+          bundleIdentifier: "com.apple.TextEdit"
+        )
+      }
+      if applicationIdentities.count > 1 { return applicationIdentities.removeFirst() }
+      return applicationIdentities[0]
+    }
+  }
 
   func activateFrontmostApplicationAccessibility() {
     lock.withLock { activationCount += 1 }
@@ -616,6 +856,15 @@ private final class SuspendingAXReader: AXReading, @unchecked Sendable {
   private var retainedElementReferences = 0
 
   func isTrusted() -> Bool { true }
+  func frontmostApplicationIdentity() -> AXApplicationIdentity? {
+    AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "com.apple.TextEdit")
+  }
+  func applicationIdentity(processIdentifier: pid_t) -> AXApplicationIdentity? {
+    AXApplicationIdentity(
+      processIdentifier: processIdentifier,
+      bundleIdentifier: "com.apple.TextEdit"
+    )
+  }
   func activateFrontmostApplicationAccessibility() {}
   func focusedElement() throws -> AXElementID {
     lock.withLock { retainedElementReferences += 1 }

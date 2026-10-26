@@ -23,6 +23,27 @@ struct AXElementID: Sendable, Equatable {
   let identity: UInt64
 }
 
+struct AXApplicationIdentity: Sendable, Equatable {
+  let processIdentifier: pid_t
+  let bundleIdentifier: String
+}
+
+private enum SupportedAXApplication: String, Sendable {
+  case textEdit = "com.apple.TextEdit"
+  case safari = "com.apple.Safari"
+  case chrome = "com.google.Chrome"
+
+  init?(identity: AXApplicationIdentity, expectedProcessIdentifier: pid_t) {
+    guard identity.processIdentifier == expectedProcessIdentifier,
+      expectedProcessIdentifier > 0,
+      let application = Self(rawValue: identity.bundleIdentifier)
+    else {
+      return nil
+    }
+    self = application
+  }
+}
+
 struct AXTextRange: Sendable, Equatable {
   let location: Int
   let length: Int
@@ -46,6 +67,8 @@ struct AXSnapshot: Sendable, Equatable {
 
 protocol AXReading: Sendable {
   func isTrusted() async -> Bool
+  func frontmostApplicationIdentity() async -> AXApplicationIdentity?
+  func applicationIdentity(processIdentifier: pid_t) async -> AXApplicationIdentity?
   func activateFrontmostApplicationAccessibility() async
   func focusedElement() async throws -> AXElementID
   func snapshot(of element: AXElementID) async throws -> AXSnapshot
@@ -72,6 +95,7 @@ actor AccessibilitySelectedTextReader: SelectionReading {
 
     let initialElement = try await focusedElementWithOnDemandActivation()
     do {
+      let initialApplication = try await supportedApplication(for: initialElement)
       let initialSnapshot = try await accessibility.snapshot(of: initialElement)
       try Self.requireEligible(initialSnapshot)
 
@@ -93,6 +117,16 @@ actor AccessibilitySelectedTextReader: SelectionReading {
       let currentElement = try await accessibility.focusedElement()
       do {
         guard await accessibility.sameElement(initialElement, currentElement) else {
+          throw AccessibilitySelectionError.focusChanged
+        }
+
+        let currentApplication: SupportedAXApplication
+        do {
+          currentApplication = try await supportedApplication(for: currentElement)
+        } catch {
+          throw AccessibilitySelectionError.focusChanged
+        }
+        guard currentApplication == initialApplication else {
           throw AccessibilitySelectionError.focusChanged
         }
 
@@ -124,9 +158,37 @@ actor AccessibilitySelectedTextReader: SelectionReading {
     do {
       return try await accessibility.focusedElement()
     } catch AccessibilitySelectionError.noFocusedControl {
+      guard let frontmostIdentity = await accessibility.frontmostApplicationIdentity(),
+        let frontmostApplication = SupportedAXApplication(
+          identity: frontmostIdentity,
+          expectedProcessIdentifier: frontmostIdentity.processIdentifier
+        )
+      else {
+        throw AccessibilitySelectionError.unsupportedApplication
+      }
+      guard frontmostApplication == .chrome else {
+        throw AccessibilitySelectionError.noFocusedControl
+      }
       await accessibility.activateFrontmostApplicationAccessibility()
       return try await accessibility.focusedElement()
     }
+  }
+
+  private func supportedApplication(
+    for element: AXElementID
+  ) async throws -> SupportedAXApplication {
+    guard
+      let identity = await accessibility.applicationIdentity(
+        processIdentifier: element.processIdentifier
+      ),
+      let application = SupportedAXApplication(
+        identity: identity,
+        expectedProcessIdentifier: element.processIdentifier
+      )
+    else {
+      throw AccessibilitySelectionError.unsupportedApplication
+    }
+    return application
   }
 
   private static func requireEligible(_ snapshot: AXSnapshot) throws {
@@ -197,8 +259,42 @@ actor SystemAXReader: AXReading {
     AXIsProcessTrusted()
   }
 
+  func frontmostApplicationIdentity() -> AXApplicationIdentity? {
+    guard let application = NSWorkspace.shared.frontmostApplication,
+      let bundleIdentifier = application.bundleIdentifier
+    else {
+      return nil
+    }
+    return AXApplicationIdentity(
+      processIdentifier: application.processIdentifier,
+      bundleIdentifier: bundleIdentifier
+    )
+  }
+
+  func applicationIdentity(processIdentifier: pid_t) -> AXApplicationIdentity? {
+    guard processIdentifier > 0,
+      let application = NSRunningApplication(processIdentifier: processIdentifier),
+      application.processIdentifier == processIdentifier,
+      let bundleIdentifier = application.bundleIdentifier
+    else {
+      return nil
+    }
+    return AXApplicationIdentity(
+      processIdentifier: application.processIdentifier,
+      bundleIdentifier: bundleIdentifier
+    )
+  }
+
   func activateFrontmostApplicationAccessibility() {
-    guard let application = NSWorkspace.shared.frontmostApplication else { return }
+    guard let application = NSWorkspace.shared.frontmostApplication,
+      let identity = applicationIdentity(processIdentifier: application.processIdentifier),
+      SupportedAXApplication(
+        identity: identity,
+        expectedProcessIdentifier: application.processIdentifier
+      ) == .chrome
+    else {
+      return
+    }
     let candidate = AXUIElementCreateApplication(application.processIdentifier)
     var ignoredRole: CFTypeRef?
     _ = AXUIElementCopyAttributeValue(
