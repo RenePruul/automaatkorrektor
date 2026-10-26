@@ -12,6 +12,11 @@ struct LanguageCheckPopover: View {
 
       Divider()
 
+      if model.state == .blocked(.accessibilityPermissionRequired) {
+        permissionRecovery
+        Divider()
+      }
+
       row(
         title: "Kontrolli valitud teksti",
         trailing: "⌥⌘E",
@@ -33,7 +38,7 @@ struct LanguageCheckPopover: View {
   }
 
   private var statusHeader: some View {
-    let content = model.state.presentation
+    let content = model.visiblePresentation
 
     return HStack(alignment: .top, spacing: 11) {
       Image(systemName: content.symbol)
@@ -51,6 +56,32 @@ struct LanguageCheckPopover: View {
           .fixedSize(horizontal: false, vertical: true)
       }
     }
+  }
+
+  private var permissionRecovery: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Button("Ava Accessibility seaded") {
+        model.openAccessibilitySettings()
+      }
+      .buttonStyle(.borderedProminent)
+
+      if model.showsAccessibilityInstructions {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("1. Ava Privacy & Security → Accessibility.")
+          Text("2. Lülita Automaatkorrektor sisse.")
+          Text("3. Naase rakendusse ja kontrolli luba uuesti.")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+      }
+
+      Button("Kontrolli luba uuesti") {
+        Task { await model.refreshAccessibilityPermission() }
+      }
+      .buttonStyle(.link)
+    }
+    .padding(.horizontal, 14)
+    .padding(.bottom, 12)
   }
 
   private func row(

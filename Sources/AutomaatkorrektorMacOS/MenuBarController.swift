@@ -46,9 +46,13 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
   func showPopover() {
     guard let button = statusItem.button else { return }
-    lifecycle.reopen()
     popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     popover.contentViewController?.view.window?.makeKey()
+    Task { await lifecycle.popoverDidOpen() }
+  }
+
+  func applicationDidBecomeActive() async {
+    await lifecycle.applicationDidBecomeActive()
   }
 
   private func closePopover() {

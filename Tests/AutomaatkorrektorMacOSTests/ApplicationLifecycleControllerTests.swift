@@ -15,7 +15,8 @@ struct ApplicationLifecycleControllerTests {
       useCase: LanguageCheckUseCase(
         selectionReader: reader,
         languageDetector: detector
-      )
+      ),
+      accessibilityPermission: LifecyclePermissionController()
     )
     let lifecycle = ApplicationLifecycleController(
       model: model,
@@ -42,7 +43,8 @@ struct ApplicationLifecycleControllerTests {
       useCase: LanguageCheckUseCase(
         selectionReader: CountingSelectionReader(),
         languageDetector: CountingDetector()
-      )
+      ),
+      accessibilityPermission: LifecyclePermissionController()
     )
     let lifecycle = ApplicationLifecycleController(
       model: model,
@@ -59,6 +61,31 @@ struct ApplicationLifecycleControllerTests {
     await lifecycle.quit()
 
     #expect(terminator.terminationCount == 1)
+  }
+
+  @Test("popover opening and application activation refresh permission without reading text")
+  func lifecycleRefreshesPermission() async {
+    let permission = LifecyclePermissionController()
+    let reader = CountingSelectionReader()
+    let detector = CountingDetector()
+    let model = LanguageCheckViewModel(
+      useCase: LanguageCheckUseCase(
+        selectionReader: reader,
+        languageDetector: detector
+      ),
+      accessibilityPermission: permission
+    )
+    let lifecycle = ApplicationLifecycleController(
+      model: model,
+      terminator: TerminationSpy()
+    )
+
+    await lifecycle.popoverDidOpen()
+    await lifecycle.applicationDidBecomeActive()
+
+    #expect(permission.checkCount == 2)
+    #expect(await reader.readCount == 0)
+    #expect(await detector.requestCount == 0)
   }
 }
 
@@ -87,4 +114,16 @@ private final class TerminationSpy: ApplicationTerminating {
   func terminate() {
     terminationCount += 1
   }
+}
+
+@MainActor
+private final class LifecyclePermissionController: AccessibilityPermissionControlling {
+  private(set) var checkCount = 0
+
+  func checkPermission() -> Bool {
+    checkCount += 1
+    return true
+  }
+
+  func openSettings() {}
 }

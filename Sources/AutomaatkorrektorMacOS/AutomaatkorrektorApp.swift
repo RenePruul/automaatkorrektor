@@ -20,7 +20,10 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
       selectionReader: DemoSelectionReader(),
       languageDetector: DemoLanguageDetector()
     )
-    let model = LanguageCheckViewModel(useCase: useCase)
+    let model = LanguageCheckViewModel(
+      useCase: useCase,
+      accessibilityPermission: MacOSAccessibilityPermissionController()
+    )
     let lifecycle = ApplicationLifecycleController(
       model: model,
       terminator: NSApplicationTerminator()
@@ -41,6 +44,11 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
   ) -> Bool {
     menuBarController?.showPopover()
     return true
+  }
+
+  func applicationDidBecomeActive(_ notification: Notification) {
+    guard let menuBarController else { return }
+    Task { await menuBarController.applicationDidBecomeActive() }
   }
 }
 
