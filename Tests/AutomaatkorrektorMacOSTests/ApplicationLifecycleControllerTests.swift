@@ -101,7 +101,10 @@ private actor CountingSelectionReader: SelectionReading {
 private actor CountingDetector: LanguageDetecting {
   private(set) var requestCount = 0
 
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
     requestCount += 1
     return .estonian
   }

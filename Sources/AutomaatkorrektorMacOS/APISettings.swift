@@ -1,3 +1,4 @@
+import AutomaatkorrektorCore
 import Combine
 import Foundation
 
@@ -100,7 +101,9 @@ final class APISettingsStore: ObservableObject {
     }
   }
 
-  func currentBaseURL() -> URL {
-    baseURL.url
+  func currentConfiguration() -> LanguageCheckConfiguration {
+    LanguageCheckConfiguration(validatedServiceBaseURL: baseURL.url.absoluteString)
   }
 }
+
+extension APISettingsStore: LanguageCheckConfiguring {}

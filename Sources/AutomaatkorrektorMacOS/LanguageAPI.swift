@@ -6,19 +6,22 @@ protocol LanguageAPITransporting: Sendable {
 }
 
 struct LanguageAPIClient: LanguageDetecting, Sendable {
-  private let baseURL: @Sendable () async -> URL
   private let transport: any LanguageAPITransporting
 
   init(
-    baseURL: @escaping @Sendable () async -> URL,
     transport: any LanguageAPITransporting = LanguageAPITransport()
   ) {
-    self.baseURL = baseURL
     self.transport = transport
   }
 
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
-    let endpoint = await baseURL().appending(path: "detect", directoryHint: .notDirectory)
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
+    guard let baseURL = URL(string: configuration.serviceBaseURL) else {
+      throw LanguageCheckFailure.invalidInput
+    }
+    let endpoint = baseURL.appending(path: "detect", directoryHint: .notDirectory)
     var request = URLRequest(url: endpoint)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")

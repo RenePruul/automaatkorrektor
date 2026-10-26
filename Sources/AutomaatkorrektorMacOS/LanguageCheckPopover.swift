@@ -19,6 +19,17 @@ struct LanguageCheckPopover: View {
         Divider()
       }
 
+      if model.showsRetryAction {
+        Button("Proovi uuesti") {
+          Task { await model.retryUnavailableService() }
+        }
+        .buttonStyle(.borderedProminent)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 12)
+
+        Divider()
+      }
+
       row(
         title: "Kontrolli valitud teksti",
         trailing: shortcut.shortcut?.displayName ?? "—",

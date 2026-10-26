@@ -6,6 +6,19 @@ public struct SelectedText: Sendable, Equatable {
   }
 }
 
+/// An immutable, already-validated snapshot for one explicit check.
+///
+/// Platform adapters own URL validation. Core deliberately keeps the value as
+/// a string so it stays independent of Foundation networking types.
+public struct LanguageCheckConfiguration: Sendable, Equatable {
+  public let serviceBaseURL: String
+
+  public init(validatedServiceBaseURL: String) {
+    precondition(!validatedServiceBaseURL.isEmpty)
+    self.serviceBaseURL = validatedServiceBaseURL
+  }
+}
+
 public enum LanguageVerdict: Sendable, Equatable {
   case estonian
   case notEstonian
@@ -35,20 +48,30 @@ public protocol SelectionReading: Sendable {
   func readSelectedText() async throws -> SelectedText
 }
 
+public protocol LanguageCheckConfiguring: Sendable {
+  func currentConfiguration() async -> LanguageCheckConfiguration
+}
+
 public protocol LanguageDetecting: Sendable {
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict
 }
 
 public actor LanguageCheckUseCase {
+  private let configurationProvider: any LanguageCheckConfiguring
   private let selectionReader: any SelectionReading
   private let languageDetector: any LanguageDetecting
   private var generation = 0
   private var activeCheck: Task<LanguageVerdict, any Error>?
 
   public init(
+    configurationProvider: any LanguageCheckConfiguring,
     selectionReader: any SelectionReading,
     languageDetector: any LanguageDetecting
   ) {
+    self.configurationProvider = configurationProvider
     self.selectionReader = selectionReader
     self.languageDetector = languageDetector
   }
@@ -57,14 +80,20 @@ public actor LanguageCheckUseCase {
     activeCheck?.cancel()
     generation += 1
     let checkGeneration = generation
+    let configurationProvider = self.configurationProvider
     let selectionReader = self.selectionReader
     let languageDetector = self.languageDetector
 
     let task = Task {
       try Task.checkCancellation()
+      let configuration = await configurationProvider.currentConfiguration()
+      try Task.checkCancellation()
       let selectedText = try await selectionReader.readSelectedText()
       try Task.checkCancellation()
-      return try await languageDetector.detectLanguage(of: selectedText)
+      return try await languageDetector.detectLanguage(
+        of: selectedText,
+        configuration: configuration
+      )
     }
     activeCheck = task
 
