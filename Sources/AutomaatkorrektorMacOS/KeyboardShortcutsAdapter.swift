@@ -82,6 +82,15 @@ struct GlobalShortcutRecorder: View {
       }
       _ = controller.replace(with: KeyboardShortcutsBackend.globalShortcut(shortcut))
     }
+    .shortcutValidation { candidate in
+      let otherNames = KeyboardShortcuts.storedNames.subtracting([.checkSelectedText])
+      let isDuplicate = otherNames.contains {
+        KeyboardShortcuts.getShortcut(for: $0) == candidate
+      }
+      return isDuplicate
+        ? .disallow(reason: "See kiirklahv on Automaatkorrektoris juba kasutusel.")
+        : .allow
+    }
   }
 }
 
