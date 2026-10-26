@@ -80,7 +80,7 @@ class LanguageAPIStubTests(unittest.TestCase):
                 )
                 self.assertEqual(status, 400)
 
-    def test_supports_delay_incompatible_and_server_error_scenarios(self):
+    def test_supports_delay_and_deterministic_failure_scenarios(self):
         with RunningStub(language_api_stub.Scenario(verdict="jah", delay_seconds=0.08)) as stub:
             started = time.monotonic()
             status, _, _ = stub.request(
@@ -101,6 +101,17 @@ class LanguageAPIStubTests(unittest.TestCase):
             )
             self.assertEqual(status, 200)
             self.assertEqual(json.loads(body), {"verdict": "test-only-unknown"})
+
+        with RunningStub(language_api_stub.Scenario(response_mode="invalid-json")) as stub:
+            status, body, headers = stub.request(
+                "POST",
+                "/detect",
+                body=b'{"text":"Tere"}',
+                headers={"Content-Type": "application/json"},
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(headers["Content-Type"], "application/json")
+            self.assertEqual(body, b"test-only-invalid-json")
 
         with RunningStub(language_api_stub.Scenario(response_mode="server-error")) as stub:
             status, body, _ = stub.request(
