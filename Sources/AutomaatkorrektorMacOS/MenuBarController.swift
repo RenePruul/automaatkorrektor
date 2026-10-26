@@ -5,6 +5,7 @@ import SwiftUI
 final class MenuBarController: NSObject, NSPopoverDelegate {
   private let model: LanguageCheckViewModel
   private let lifecycle: ApplicationLifecycleController
+  private let shortcut: GlobalShortcutController
   private let settingsWindowController: SettingsWindowController
   private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let popover = NSPopover()
@@ -12,11 +13,16 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
   init(
     model: LanguageCheckViewModel,
     lifecycle: ApplicationLifecycleController,
-    settings: APISettingsStore
+    settings: APISettingsStore,
+    shortcut: GlobalShortcutController
   ) {
     self.model = model
     self.lifecycle = lifecycle
-    settingsWindowController = SettingsWindowController(settings: settings)
+    self.shortcut = shortcut
+    settingsWindowController = SettingsWindowController(
+      settings: settings,
+      shortcut: shortcut
+    )
     super.init()
   }
 
@@ -29,16 +35,22 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     button.target = self
     button.action = #selector(togglePopover)
 
+    shortcut.start { [weak self] in
+      self?.invokeShortcut()
+    }
+
     popover.behavior = .transient
     popover.delegate = self
     popover.contentSize = NSSize(width: 330, height: 250)
     popover.contentViewController = NSHostingController(
       rootView: LanguageCheckPopover(
         model: model,
+        shortcut: shortcut,
         showSettings: { [weak self] in
           self?.settingsWindowController.show()
         },
-        quit: { [weak lifecycle] in
+        quit: { [weak lifecycle, weak shortcut] in
+          shortcut?.stop()
           guard let lifecycle else { return }
           await lifecycle.quit()
         }
@@ -51,10 +63,16 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
   }
 
   func showPopover() {
+    showPopover(refreshPermission: true)
+  }
+
+  private func showPopover(refreshPermission: Bool) {
     guard let button = statusItem.button else { return }
     popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     popover.contentViewController?.view.window?.makeKey()
-    Task { await lifecycle.popoverDidOpen() }
+    if refreshPermission {
+      Task { await lifecycle.popoverDidOpen() }
+    }
   }
 
   func applicationDidBecomeActive() async {
@@ -63,6 +81,11 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
   private func closePopover() {
     popover.performClose(nil)
+  }
+
+  private func invokeShortcut() {
+    showPopover(refreshPermission: false)
+    Task { await lifecycle.handleShortcut() }
   }
 
   func popoverDidClose(_ notification: Notification) {

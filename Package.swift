@@ -10,11 +10,20 @@ let package = Package(
     .executable(name: "Automaatkorrektor", targets: ["AutomaatkorrektorMacOS"]),
     .executable(name: "NativeTextControlHost", targets: ["NativeTextControlHost"]),
   ],
+  dependencies: [
+    .package(
+      url: "https://github.com/sindresorhus/KeyboardShortcuts.git",
+      exact: "3.1.0"
+    )
+  ],
   targets: [
     .target(name: "AutomaatkorrektorCore"),
     .executableTarget(
       name: "AutomaatkorrektorMacOS",
-      dependencies: ["AutomaatkorrektorCore"]
+      dependencies: [
+        "AutomaatkorrektorCore",
+        .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
+      ]
     ),
     .executableTarget(name: "NativeTextControlHost"),
     .testTarget(

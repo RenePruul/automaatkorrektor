@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LanguageCheckPopover: View {
   @ObservedObject var model: LanguageCheckViewModel
+  @ObservedObject var shortcut: GlobalShortcutController
   let showSettings: () -> Void
   let quit: @MainActor () async -> Void
 
@@ -20,7 +21,7 @@ struct LanguageCheckPopover: View {
 
       row(
         title: "Kontrolli valitud teksti",
-        trailing: "⌥⌘E",
+        trailing: shortcut.shortcut?.displayName ?? "—",
         symbol: "play.fill"
       ) {
         Task { await model.check() }

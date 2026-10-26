@@ -3,6 +3,7 @@ import SwiftUI
 
 struct APISettingsView: View {
   @ObservedObject var settings: APISettingsStore
+  @ObservedObject var shortcut: GlobalShortcutController
 
   var body: some View {
     Form {
@@ -22,10 +23,19 @@ struct APISettingsView: View {
             .foregroundStyle(.red)
         }
       }
+      VStack(alignment: .leading, spacing: 6) {
+        GlobalShortcutRecorder(controller: shortcut)
+
+        if let message = shortcut.registrationMessage {
+          Text(message)
+            .font(.caption)
+            .foregroundStyle(.red)
+        }
+      }
     }
     .formStyle(.grouped)
     .padding(16)
-    .frame(width: 430, height: 150)
+    .frame(width: 430, height: 210)
     .preferredColorScheme(.dark)
   }
 }
@@ -34,13 +44,15 @@ struct APISettingsView: View {
 final class SettingsWindowController {
   private let window: NSWindow
 
-  init(settings: APISettingsStore) {
-    let hostingController = NSHostingController(rootView: APISettingsView(settings: settings))
+  init(settings: APISettingsStore, shortcut: GlobalShortcutController) {
+    let hostingController = NSHostingController(
+      rootView: APISettingsView(settings: settings, shortcut: shortcut)
+    )
     window = NSWindow(contentViewController: hostingController)
     window.title = "Automaatkorrektori seaded"
     window.styleMask = [.titled, .closable]
     window.isReleasedWhenClosed = false
-    window.setContentSize(NSSize(width: 430, height: 150))
+    window.setContentSize(NSSize(width: 430, height: 210))
     window.center()
   }
 

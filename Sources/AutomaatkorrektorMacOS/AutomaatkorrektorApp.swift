@@ -31,10 +31,12 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
       model: model,
       terminator: NSApplicationTerminator()
     )
+    let shortcut = GlobalShortcutController(backend: KeyboardShortcutsBackend())
     let controller = MenuBarController(
       model: model,
       lifecycle: lifecycle,
-      settings: settings
+      settings: settings,
+      shortcut: shortcut
     )
 
     lifecycle.launch()

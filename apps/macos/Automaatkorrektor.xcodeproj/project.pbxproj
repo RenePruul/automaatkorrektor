@@ -19,6 +19,9 @@
 		A1000000000000000000000B /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* APISettings.swift */; };
 		A1000000000000000000000C /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* SettingsWindowController.swift */; };
 		A1000000000000000000000D /* AccessibilitySelectedTextReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* AccessibilitySelectedTextReader.swift */; };
+		A1000000000000000000000E /* GlobalShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* GlobalShortcutController.swift */; };
+		A1000000000000000000000F /* KeyboardShortcutsAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* KeyboardShortcutsAdapter.swift */; };
+		A10000000000000000000010 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = AD0000000000000000000002 /* KeyboardShortcuts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,11 +60,13 @@
 		A2000000000000000000000B /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APISettings.swift; path = ../../Sources/AutomaatkorrektorMacOS/APISettings.swift; sourceTree = SOURCE_ROOT; };
 		A2000000000000000000000C /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsWindowController.swift; path = ../../Sources/AutomaatkorrektorMacOS/SettingsWindowController.swift; sourceTree = SOURCE_ROOT; };
 		A2000000000000000000000D /* AccessibilitySelectedTextReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AccessibilitySelectedTextReader.swift; path = ../../Sources/AutomaatkorrektorMacOS/AccessibilitySelectedTextReader.swift; sourceTree = SOURCE_ROOT; };
+		A2000000000000000000000E /* GlobalShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GlobalShortcutController.swift; path = ../../Sources/AutomaatkorrektorMacOS/GlobalShortcutController.swift; sourceTree = SOURCE_ROOT; };
+		A2000000000000000000000F /* KeyboardShortcutsAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeyboardShortcutsAdapter.swift; path = ../../Sources/AutomaatkorrektorMacOS/KeyboardShortcutsAdapter.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A70000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		A70000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000007 /* AutomaatkorrektorCore.framework in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; };
+		A70000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000007 /* AutomaatkorrektorCore.framework in Frameworks */, A10000000000000000000010 /* KeyboardShortcuts in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -77,7 +82,7 @@
 			sourceTree = "<group>";
 		};
 		A80000000000000000000003 /* AutomaatkorrektorCore */ = {isa = PBXGroup; children = (A20000000000000000000001 /* LanguageCheck.swift */, ); name = AutomaatkorrektorCore; sourceTree = "<group>"; };
-		A80000000000000000000004 /* AutomaatkorrektorMacOS */ = {isa = PBXGroup; children = (A2000000000000000000000B, A20000000000000000000009, A2000000000000000000000D, A20000000000000000000002, A20000000000000000000003, A2000000000000000000000A, A20000000000000000000004, A20000000000000000000005, A20000000000000000000006, A2000000000000000000000C, ); name = AutomaatkorrektorMacOS; sourceTree = "<group>"; };
+		A80000000000000000000004 /* AutomaatkorrektorMacOS */ = {isa = PBXGroup; children = (A2000000000000000000000B, A20000000000000000000009, A2000000000000000000000D, A20000000000000000000002, A20000000000000000000003, A2000000000000000000000E, A2000000000000000000000F, A2000000000000000000000A, A20000000000000000000004, A20000000000000000000005, A20000000000000000000006, A2000000000000000000000C, ); name = AutomaatkorrektorMacOS; sourceTree = "<group>"; };
 		A80000000000000000000005 /* Products */ = {isa = PBXGroup; children = (A20000000000000000000007 /* Automaatkorrektor.app */, A20000000000000000000008 /* AutomaatkorrektorCore.framework */, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -100,6 +105,7 @@
 			buildRules = ();
 			dependencies = (AB0000000000000000000001 /* PBXTargetDependency */, );
 			name = Automaatkorrektor;
+			packageProductDependencies = (AD0000000000000000000002 /* KeyboardShortcuts */, );
 			productName = Automaatkorrektor;
 			productReference = A20000000000000000000007;
 			productType = "com.apple.product-type.application";
@@ -116,6 +122,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (en, Base, );
 			mainGroup = A80000000000000000000001;
+			packageReferences = (AD0000000000000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */, );
 			productRefGroup = A80000000000000000000005;
 			projectDirPath = "";
 			projectRoot = "";
@@ -125,8 +132,27 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		AA0000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* LanguageCheck.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
-		AA0000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A1000000000000000000000B, A10000000000000000000009, A1000000000000000000000D, A10000000000000000000002, A10000000000000000000003, A1000000000000000000000A, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A1000000000000000000000C, ); runOnlyForDeploymentPostprocessing = 0; };
+		AA0000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A1000000000000000000000B, A10000000000000000000009, A1000000000000000000000D, A10000000000000000000002, A10000000000000000000003, A1000000000000000000000E, A1000000000000000000000F, A1000000000000000000000A, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A1000000000000000000000C, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AD0000000000000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts.git";
+			requirement = {
+				kind = exactVersion;
+				version = 3.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AD0000000000000000000002 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD0000000000000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXTargetDependency section */
 		AB0000000000000000000001 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A50000000000000000000001 /* AutomaatkorrektorCore */; targetProxy = A30000000000000000000001 /* PBXContainerItemProxy */; };
