@@ -147,6 +147,9 @@ final class LanguageCheckViewModel: ObservableObject {
     } catch let failure as LanguageCheckFailure {
       guard checkGeneration == generation else { return }
       state = .failed(failure)
+    } catch let accessibilityError as AccessibilitySelectionError {
+      guard checkGeneration == generation else { return }
+      state = Self.presentationState(for: accessibilityError)
     } catch is CancellationError {
       // Cancellation is intentionally silent.
     } catch {
@@ -183,5 +186,23 @@ final class LanguageCheckViewModel: ObservableObject {
     generation += 1
     await useCase.cancel()
     state = .blocked(.accessibilityPermissionRequired)
+  }
+
+  private static func presentationState(
+    for error: AccessibilitySelectionError
+  ) -> LanguageCheckPresentationState {
+    switch error {
+    case .permissionRequired:
+      .blocked(.accessibilityPermissionRequired)
+    case .noSelection:
+      .blocked(.noSelection)
+    case .selectionTooLarge:
+      .failed(.selectionTooLarge)
+    case .protectedContent, .unsupportedTextField, .readOnly, .invalidSelection,
+      .focusChanged, .noFocusedControl, .unsupportedApplication, .unknown:
+      .blocked(.unsupportedTextField)
+    case .targetUnavailable:
+      .failed(.invalidInput)
+    }
   }
 }

@@ -18,7 +18,7 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
 
     let settings = APISettingsStore()
     let useCase = LanguageCheckUseCase(
-      selectionReader: DemoSelectionReader(),
+      selectionReader: AccessibilitySelectedTextReader(),
       languageDetector: LanguageAPIClient(
         baseURL: { await settings.currentBaseURL() }
       )
@@ -53,11 +53,5 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
   func applicationDidBecomeActive(_ notification: Notification) {
     guard let menuBarController else { return }
     Task { await menuBarController.applicationDidBecomeActive() }
-  }
-}
-
-private actor DemoSelectionReader: SelectionReading {
-  func readSelectedText() async throws -> SelectedText {
-    SelectedText("Tere maailm")
   }
 }
