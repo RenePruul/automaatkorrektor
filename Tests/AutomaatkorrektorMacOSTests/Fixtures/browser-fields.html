@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Automaatkorrektor offline browser fixture</title>
+<style>
+  body { font: 16px system-ui; margin: 40px; max-width: 760px; }
+  label { display: grid; gap: 6px; margin: 20px 0; font-weight: 600; }
+  input, textarea, [contenteditable] { font: inherit; padding: 10px; }
+  [contenteditable] { border: 1px solid #888; min-height: 60px; }
+</style>
+<h1>Offline Safari and Chrome text-field fixture</h1>
+<p>Every value is synthetic. This page loads no remote content.</p>
+<label>Text input
+  <input id="safari-chrome-text" value="SYNTHETIC-BROWSER-FIXTURE-TEXT">
+</label>
+<label>Search input
+  <input id="safari-chrome-search" type="search" value="SYNTHETIC-BROWSER-FIXTURE-SEARCH">
+</label>
+<label>Textarea
+  <textarea id="safari-chrome-textarea">SYNTHETIC-BROWSER-FIXTURE-TEXTAREA</textarea>
+</label>
+<label>Password input — reject without reading
+  <input id="reject-password" type="password" value="SYNTHETIC-SECRET-NEVER-READ">
+</label>
+<label>Read-only input — reject without reading
+  <input id="reject-readonly" readonly value="SYNTHETIC-READONLY-NEVER-READ">
+</label>
+<label>Disabled input — reject without reading
+  <input id="reject-disabled" disabled value="SYNTHETIC-DISABLED-NEVER-READ">
+</label>
+<label>Contenteditable — outside v0.1
+  <div id="reject-contenteditable" contenteditable>SYNTHETIC-CONTENTEDITABLE-NEVER-READ</div>
+</label>
+</html>

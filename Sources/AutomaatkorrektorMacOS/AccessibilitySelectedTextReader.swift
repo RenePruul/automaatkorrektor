@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import AutomaatkorrektorCore
 import Foundation
@@ -45,6 +46,7 @@ struct AXSnapshot: Sendable, Equatable {
 
 protocol AXReading: Sendable {
   func isTrusted() async -> Bool
+  func activateFrontmostApplicationAccessibility() async
   func focusedElement() async throws -> AXElementID
   func snapshot(of element: AXElementID) async throws -> AXSnapshot
   func selectedRange(of element: AXElementID) async throws -> AXTextRange
@@ -68,7 +70,7 @@ actor AccessibilitySelectedTextReader: SelectionReading {
       throw AccessibilitySelectionError.permissionRequired
     }
 
-    let initialElement = try await accessibility.focusedElement()
+    let initialElement = try await focusedElementWithOnDemandActivation()
     do {
       let initialSnapshot = try await accessibility.snapshot(of: initialElement)
       try Self.requireEligible(initialSnapshot)
@@ -115,6 +117,15 @@ actor AccessibilitySelectedTextReader: SelectionReading {
     } catch {
       await accessibility.release(initialElement)
       throw error
+    }
+  }
+
+  private func focusedElementWithOnDemandActivation() async throws -> AXElementID {
+    do {
+      return try await accessibility.focusedElement()
+    } catch AccessibilitySelectionError.noFocusedControl {
+      await accessibility.activateFrontmostApplicationAccessibility()
+      return try await accessibility.focusedElement()
     }
   }
 
@@ -184,6 +195,17 @@ actor SystemAXReader: AXReading {
 
   func isTrusted() -> Bool {
     AXIsProcessTrusted()
+  }
+
+  func activateFrontmostApplicationAccessibility() {
+    guard let application = NSWorkspace.shared.frontmostApplication else { return }
+    let candidate = AXUIElementCreateApplication(application.processIdentifier)
+    var ignoredRole: CFTypeRef?
+    _ = AXUIElementCopyAttributeValue(
+      candidate,
+      kAXRoleAttribute as CFString,
+      &ignoredRole
+    )
   }
 
   func focusedElement() throws -> AXElementID {

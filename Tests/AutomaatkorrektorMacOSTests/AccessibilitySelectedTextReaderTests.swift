@@ -29,6 +29,102 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.retainedElementCount == 0)
   }
 
+  @Test("a Chrome field is reacquired from system focus after on-demand activation")
+  func chromeSelectionAfterActivation() async throws {
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea, .textEditTextArea],
+      selectedRange: AXTextRange(location: 0, length: 16),
+      selectedText: "BROWSER-FIXTURE",
+      focusedElementErrors: [.noFocusedControl, nil, nil]
+    )
+
+    let selectedText = try await AccessibilitySelectedTextReader(
+      accessibility: accessibility
+    ).readSelectedText()
+
+    #expect(selectedText == SelectedText("BROWSER-FIXTURE"))
+    #expect(accessibility.activationCount == 1)
+    #expect(accessibility.focusedElementRequestCount == 3)
+    #expect(accessibility.selectedTextReadCount == 1)
+    #expect(accessibility.valueReadCount == 0)
+  }
+
+  @Test(
+    "standard Safari and Chrome fields complete the language check",
+    arguments: BrowserFixture.supportedCases
+  )
+  fileprivate func supportedBrowserFields(fixture: BrowserFixture) async throws {
+    let accessibility = AXReaderSpy(
+      snapshots: [fixture.snapshot, fixture.snapshot],
+      selectedRange: AXTextRange(location: 0, length: fixture.selection.utf16.count),
+      selectedText: fixture.selection,
+      focusedElementErrors: fixture.needsActivation ? [.noFocusedControl, nil, nil] : []
+    )
+    let detector = SelectionRecordingDetector()
+    let useCase = LanguageCheckUseCase(
+      selectionReader: AccessibilitySelectedTextReader(accessibility: accessibility),
+      languageDetector: detector
+    )
+
+    let verdict = try await useCase.check()
+
+    #expect(verdict == .estonian)
+    #expect(await detector.receivedTexts == [fixture.selection])
+    #expect(accessibility.activationCount == (fixture.needsActivation ? 1 : 0))
+    #expect(accessibility.selectedRangeReadCount == 1)
+    #expect(accessibility.selectedTextReadCount == 1)
+    #expect(accessibility.valueReadCount == 0)
+  }
+
+  @Test(
+    "unsupported browser surfaces fail before content access or language detection",
+    arguments: BrowserRejectionFixture.cases
+  )
+  fileprivate func unsupportedBrowserSurfacesFailClosed(fixture: BrowserRejectionFixture) async {
+    let accessibility = AXReaderSpy(snapshots: [fixture.snapshot])
+    let detector = SelectionRecordingDetector()
+    let useCase = LanguageCheckUseCase(
+      selectionReader: AccessibilitySelectedTextReader(accessibility: accessibility),
+      languageDetector: detector
+    )
+
+    await #expect(throws: fixture.expectedError) {
+      try await useCase.check()
+    }
+
+    #expect(accessibility.selectedRangeReadCount == 0)
+    #expect(accessibility.selectedTextReadCount == 0)
+    #expect(accessibility.valueReadCount == 0)
+    #expect(await detector.receivedTexts.isEmpty)
+  }
+
+  @Test("the offline browser fixture is synthetic and contains the supported matrix")
+  func offlineBrowserFixture() throws {
+    let fixtureURL = try #require(
+      Bundle.module.url(
+        forResource: "browser-fields",
+        withExtension: "html",
+        subdirectory: "Fixtures"
+      )
+    )
+    let html = try String(contentsOf: fixtureURL, encoding: .utf8)
+
+    for identifier in [
+      "safari-chrome-text",
+      "safari-chrome-search",
+      "safari-chrome-textarea",
+      "reject-password",
+      "reject-readonly",
+      "reject-disabled",
+      "reject-contenteditable",
+    ] {
+      #expect(html.contains("id=\"\(identifier)\""))
+    }
+    #expect(html.contains("SYNTHETIC-BROWSER-FIXTURE"))
+    #expect(!html.contains("http://"))
+    #expect(!html.contains("https://"))
+  }
+
   @Test(
     "ineligible controls fail closed before selected text is read",
     arguments: AXFixture.ineligibleCases
@@ -248,10 +344,89 @@ private struct AXFixture: Sendable, CustomTestStringConvertible {
   ]
 }
 
+private struct BrowserFixture: Sendable, CustomTestStringConvertible {
+  let name: String
+  let snapshot: AXSnapshot
+  let selection: String
+  let needsActivation: Bool
+
+  var testDescription: String { name }
+
+  static let supportedCases: [BrowserFixture] = [
+    BrowserFixture(
+      name: "Safari text input",
+      snapshot: .browserTextField,
+      selection: "SYNTHETIC-BROWSER-FIXTURE-SAFARI-INPUT",
+      needsActivation: false
+    ),
+    BrowserFixture(
+      name: "Safari textarea",
+      snapshot: .browserTextArea,
+      selection: "SYNTHETIC-BROWSER-FIXTURE-SAFARI-TEXTAREA",
+      needsActivation: false
+    ),
+    BrowserFixture(
+      name: "Chrome text input",
+      snapshot: .browserTextField,
+      selection: "SYNTHETIC-BROWSER-FIXTURE-CHROME-INPUT",
+      needsActivation: true
+    ),
+    BrowserFixture(
+      name: "Chrome search input",
+      snapshot: .browserSearchField,
+      selection: "SYNTHETIC-BROWSER-FIXTURE-CHROME-SEARCH",
+      needsActivation: true
+    ),
+  ]
+}
+
+private struct BrowserRejectionFixture: Sendable, CustomTestStringConvertible {
+  let name: String
+  let snapshot: AXSnapshot
+  let expectedError: AccessibilitySelectionError
+
+  var testDescription: String { name }
+
+  static let cases: [BrowserRejectionFixture] = [
+    BrowserRejectionFixture(
+      name: "password field",
+      snapshot: .secureTextField,
+      expectedError: .protectedContent
+    ),
+    BrowserRejectionFixture(
+      name: "web-area document selection",
+      snapshot: .webArea,
+      expectedError: .unsupportedTextField
+    ),
+    BrowserRejectionFixture(
+      name: "contenteditable group",
+      snapshot: .contentEditableGroup,
+      expectedError: .unsupportedTextField
+    ),
+    BrowserRejectionFixture(
+      name: "custom editor role",
+      snapshot: .customRole,
+      expectedError: .unsupportedTextField
+    ),
+  ]
+}
+
 extension AXSnapshot {
   fileprivate static let textEditTextArea = AXSnapshot(
     role: "AXTextArea",
     subrole: .absent,
+    containsProtectedContent: .absent,
+    enabled: .value(true),
+    focused: .value(true),
+    attributeNames: ["AXSelectedText", "AXSelectedTextRange"],
+    isValueSettable: true
+  )
+
+  fileprivate static let browserTextField = replacing(textEditTextArea, role: "AXTextField")
+  fileprivate static let browserTextArea = textEditTextArea
+  fileprivate static let browserSearchField = AXSnapshot(
+    role: "AXTextField",
+    subrole: .value("AXSearchField"),
     containsProtectedContent: .absent,
     enabled: .value(true),
     focused: .value(true),
@@ -282,6 +457,7 @@ extension AXSnapshot {
   )
 
   fileprivate static let webArea = replacing(textEditTextArea, role: "AXWebArea")
+  fileprivate static let contentEditableGroup = replacing(textEditTextArea, role: "AXGroup")
   fileprivate static let customRole = replacing(textEditTextArea, role: "CustomEditor")
   fileprivate static let customSubrole = AXSnapshot(
     role: "AXTextField",
@@ -341,9 +517,12 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   private let text: String
   private let trusted: Bool
   private let focusedElementError: AccessibilitySelectionError?
+  private var focusedElementErrors: [AccessibilitySelectionError?]
   private let snapshotError: AccessibilitySelectionError?
   private var retainedElementReferences = 0
   private(set) var acquiredElementCount = 0
+  private(set) var activationCount = 0
+  private(set) var focusedElementRequestCount = 0
   private(set) var releasedElementCount = 0
   private(set) var selectedRangeReadCount = 0
   private(set) var selectedTextReadCount = 0
@@ -356,6 +535,7 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
     selectedText: String = "Tere",
     isTrusted: Bool = true,
     focusedElementError: AccessibilitySelectionError? = nil,
+    focusedElementErrors: [AccessibilitySelectionError?] = [],
     snapshotError: AccessibilitySelectionError? = nil
   ) {
     self.snapshots = snapshots
@@ -364,12 +544,23 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
     text = selectedText
     trusted = isTrusted
     self.focusedElementError = focusedElementError
+    self.focusedElementErrors = focusedElementErrors
     self.snapshotError = snapshotError
   }
 
   func isTrusted() -> Bool { trusted }
 
+  func activateFrontmostApplicationAccessibility() {
+    lock.withLock { activationCount += 1 }
+  }
+
   func focusedElement() throws -> AXElementID {
+    focusedElementRequestCount += 1
+    if !focusedElementErrors.isEmpty,
+      let error = focusedElementErrors.removeFirst()
+    {
+      throw error
+    }
     if let focusedElementError { throw focusedElementError }
     return lock.withLock {
       acquiredElementCount += 1
@@ -425,6 +616,7 @@ private final class SuspendingAXReader: AXReading, @unchecked Sendable {
   private var retainedElementReferences = 0
 
   func isTrusted() -> Bool { true }
+  func activateFrontmostApplicationAccessibility() {}
   func focusedElement() throws -> AXElementID {
     lock.withLock { retainedElementReferences += 1 }
     return AXElementID(processIdentifier: 42, identity: 1)

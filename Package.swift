@@ -32,7 +32,8 @@ let package = Package(
     ),
     .testTarget(
       name: "AutomaatkorrektorMacOSTests",
-      dependencies: ["AutomaatkorrektorMacOS", "AutomaatkorrektorCore"]
+      dependencies: ["AutomaatkorrektorMacOS", "AutomaatkorrektorCore"],
+      resources: [.copy("Fixtures")]
     ),
   ]
 )
