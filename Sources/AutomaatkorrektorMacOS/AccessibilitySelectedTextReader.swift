@@ -50,6 +50,7 @@ protocol AXReading: Sendable {
   func selectedRange(of element: AXElementID) async throws -> AXTextRange
   func selectedText(of element: AXElementID) async throws -> String
   func sameElement(_ lhs: AXElementID, _ rhs: AXElementID) async -> Bool
+  func release(_ element: AXElementID) async
 }
 
 actor AccessibilitySelectedTextReader: SelectionReading {
@@ -68,41 +69,53 @@ actor AccessibilitySelectedTextReader: SelectionReading {
     }
 
     let initialElement = try await accessibility.focusedElement()
-    let initialSnapshot = try await accessibility.snapshot(of: initialElement)
-    try Self.requireEligible(initialSnapshot)
-
-    let range = try await accessibility.selectedRange(of: initialElement)
-    guard range.location >= 0, range.length >= 0 else {
-      throw AccessibilitySelectionError.invalidSelection
-    }
-    guard range.length > 0 else {
-      throw AccessibilitySelectionError.noSelection
-    }
-    guard range.length <= Self.maximumSelectionLength else {
-      throw AccessibilitySelectionError.selectionTooLarge
-    }
-
-    try Task.checkCancellation()
-    let value = try await accessibility.selectedText(of: initialElement)
-    try Task.checkCancellation()
-
-    let currentElement = try await accessibility.focusedElement()
-    guard await accessibility.sameElement(initialElement, currentElement) else {
-      throw AccessibilitySelectionError.focusChanged
-    }
-
-    let currentSnapshot = try await accessibility.snapshot(of: currentElement)
     do {
-      try Self.requireEligible(currentSnapshot)
-    } catch {
-      throw AccessibilitySelectionError.focusChanged
-    }
-    guard currentSnapshot == initialSnapshot else {
-      throw AccessibilitySelectionError.focusChanged
-    }
+      let initialSnapshot = try await accessibility.snapshot(of: initialElement)
+      try Self.requireEligible(initialSnapshot)
 
-    try Task.checkCancellation()
-    return SelectedText(value)
+      let range = try await accessibility.selectedRange(of: initialElement)
+      guard range.location >= 0, range.length >= 0 else {
+        throw AccessibilitySelectionError.invalidSelection
+      }
+      guard range.length > 0 else {
+        throw AccessibilitySelectionError.noSelection
+      }
+      guard range.length <= Self.maximumSelectionLength else {
+        throw AccessibilitySelectionError.selectionTooLarge
+      }
+
+      try Task.checkCancellation()
+      let value = try await accessibility.selectedText(of: initialElement)
+      try Task.checkCancellation()
+
+      let currentElement = try await accessibility.focusedElement()
+      do {
+        guard await accessibility.sameElement(initialElement, currentElement) else {
+          throw AccessibilitySelectionError.focusChanged
+        }
+
+        let currentSnapshot = try await accessibility.snapshot(of: currentElement)
+        do {
+          try Self.requireEligible(currentSnapshot)
+        } catch {
+          throw AccessibilitySelectionError.focusChanged
+        }
+        guard currentSnapshot == initialSnapshot else {
+          throw AccessibilitySelectionError.focusChanged
+        }
+
+        try Task.checkCancellation()
+        await accessibility.release(currentElement)
+        await accessibility.release(initialElement)
+        return SelectedText(value)
+      } catch {
+        await accessibility.release(currentElement)
+        throw error
+      }
+    } catch {
+      await accessibility.release(initialElement)
+      throw error
+    }
   }
 
   private static func requireEligible(_ snapshot: AXSnapshot) throws {
@@ -252,6 +265,10 @@ actor SystemAXReader: AXReading {
       let right = elements[rhs.identity]
     else { return false }
     return CFEqual(left, right)
+  }
+
+  func release(_ element: AXElementID) {
+    elements.removeValue(forKey: element.identity)
   }
 
   private func resolve(_ id: AXElementID) throws -> AXUIElement {

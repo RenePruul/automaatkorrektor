@@ -26,6 +26,7 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.selectedRangeReadCount == 1)
     #expect(accessibility.selectedTextReadCount == 1)
     #expect(accessibility.valueReadCount == 0)
+    #expect(accessibility.retainedElementCount == 0)
   }
 
   @Test(
@@ -48,6 +49,7 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.selectedTextReadCount == 0)
     #expect(accessibility.valueReadCount == 0)
     #expect(await detector.receivedTexts.isEmpty)
+    #expect(accessibility.retainedElementCount == 0)
   }
 
   @Test(
@@ -75,6 +77,7 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.selectedTextReadCount == 0)
     #expect(accessibility.valueReadCount == 0)
     #expect(await detector.receivedTexts.isEmpty)
+    #expect(accessibility.retainedElementCount == 0)
   }
 
   @Test("a changed focused element discards the selection before networking")
@@ -101,6 +104,7 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.selectedTextReadCount == 1)
     #expect(accessibility.valueReadCount == 0)
     #expect(await detector.receivedTexts.isEmpty)
+    #expect(accessibility.retainedElementCount == 0)
   }
 
   @Test("metadata changes after capture discard the selection before networking")
@@ -123,6 +127,7 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.selectedTextReadCount == 1)
     #expect(accessibility.valueReadCount == 0)
     #expect(await detector.receivedTexts.isEmpty)
+    #expect(accessibility.retainedElementCount == 0)
   }
 
   @Test("missing optional TextEdit metadata remains eligible")
@@ -168,7 +173,26 @@ struct AccessibilitySelectedTextReaderTests {
       #expect(accessibility.selectedTextReadCount == 0)
       #expect(accessibility.valueReadCount == 0)
       #expect(await detector.receivedTexts.isEmpty)
+      #expect(accessibility.retainedElementCount == 0)
     }
+  }
+
+  @Test("repeated language checks release every Accessibility element handle")
+  func repeatedChecksReleaseHandles() async throws {
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea],
+      selectedRange: AXTextRange(location: 0, length: 4),
+      selectedText: "Tere"
+    )
+    let reader = AccessibilitySelectedTextReader(accessibility: accessibility)
+
+    for _ in 0..<100 {
+      _ = try await reader.readSelectedText()
+      #expect(accessibility.retainedElementCount == 0)
+    }
+
+    #expect(accessibility.acquiredElementCount == 200)
+    #expect(accessibility.releasedElementCount == 200)
   }
 
   @Test("cancellation after selection capture never reaches the detector")
@@ -189,6 +213,7 @@ struct AccessibilitySelectedTextReaderTests {
       try await check.value
     }
     #expect(await detector.receivedTexts.isEmpty)
+    #expect(accessibility.retainedElementCount == 0)
   }
 }
 
@@ -317,6 +342,9 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   private let trusted: Bool
   private let focusedElementError: AccessibilitySelectionError?
   private let snapshotError: AccessibilitySelectionError?
+  private var retainedElementReferences = 0
+  private(set) var acquiredElementCount = 0
+  private(set) var releasedElementCount = 0
   private(set) var selectedRangeReadCount = 0
   private(set) var selectedTextReadCount = 0
   private(set) var valueReadCount = 0
@@ -344,6 +372,8 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   func focusedElement() throws -> AXElementID {
     if let focusedElementError { throw focusedElementError }
     return lock.withLock {
+      acquiredElementCount += 1
+      retainedElementReferences += 1
       if identities.count > 1 { return identities.removeFirst() }
       return identities[0]
     }
@@ -375,15 +405,30 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   func sameElement(_ lhs: AXElementID, _ rhs: AXElementID) -> Bool {
     lhs == rhs
   }
+
+  func release(_ element: AXElementID) {
+    lock.withLock {
+      releasedElementCount += 1
+      retainedElementReferences -= 1
+    }
+  }
+
+  var retainedElementCount: Int {
+    lock.withLock { retainedElementReferences }
+  }
 }
 
 private final class SuspendingAXReader: AXReading, @unchecked Sendable {
   private let lock = NSLock()
   private var didStart = false
   private var continuation: CheckedContinuation<Void, Never>?
+  private var retainedElementReferences = 0
 
   func isTrusted() -> Bool { true }
-  func focusedElement() throws -> AXElementID { AXElementID(processIdentifier: 42, identity: 1) }
+  func focusedElement() throws -> AXElementID {
+    lock.withLock { retainedElementReferences += 1 }
+    return AXElementID(processIdentifier: 42, identity: 1)
+  }
   func snapshot(of element: AXElementID) throws -> AXSnapshot { .textEditTextArea }
   func selectedRange(of element: AXElementID) throws -> AXTextRange {
     AXTextRange(location: 0, length: 4)
@@ -401,6 +446,14 @@ private final class SuspendingAXReader: AXReading, @unchecked Sendable {
 
   func value(of element: AXElementID) throws -> String { "THIS MUST NEVER BE READ" }
   func sameElement(_ lhs: AXElementID, _ rhs: AXElementID) -> Bool { lhs == rhs }
+
+  func release(_ element: AXElementID) {
+    lock.withLock { retainedElementReferences -= 1 }
+  }
+
+  var retainedElementCount: Int {
+    lock.withLock { retainedElementReferences }
+  }
 
   func waitUntilSelectionReadStarts() async {
     while !lock.withLock({ didStart }) { await Task.yield() }
