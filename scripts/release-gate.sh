@@ -1,0 +1,251 @@
+#!/bin/bash
+set -u
+
+usage() {
+  printf '%s\n' 'usage: scripts/release-gate.sh [--report PATH] [--manual-evidence PATH]'
+}
+
+repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+report_path="$repo_root/.release-evidence/report.md"
+manual_evidence_path=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --report)
+      [ "$#" -ge 2 ] || { usage >&2; exit 64; }
+      report_path=$2
+      shift 2
+      ;;
+    --manual-evidence)
+      [ "$#" -ge 2 ] || { usage >&2; exit 64; }
+      manual_evidence_path=$2
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 64
+      ;;
+  esac
+done
+
+temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/automaatkorrektor-release-gate.XXXXXX")
+trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
+command_log="$temporary_directory/commands.log"
+mkdir -p "$(dirname "$report_path")"
+
+export CLANG_MODULE_CACHE_PATH="$temporary_directory/clang-module-cache"
+export SWIFTPM_MODULECACHE_OVERRIDE="$temporary_directory/swiftpm-module-cache"
+
+overall_automation=PASS
+run_check() {
+  label=$1
+  shift
+  printf '==> %s\n' "$label"
+  if "$@" >>"$command_log" 2>&1; then
+    printf 'PASS: %s\n' "$label" >>"$command_log"
+  else
+    printf 'FAIL: %s\n' "$label" >>"$command_log"
+    overall_automation=FAIL
+  fi
+}
+
+cd "$repo_root" || exit 1
+run_check 'strict Swift format' swift format lint --recursive --strict Sources Tests Package.swift
+run_check 'Git whitespace' git diff --check
+if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
+  printf '%s\n' 'FAIL: clean Git tree' >>"$command_log"
+  overall_automation=FAIL
+  tree_state=dirty
+else
+  printf '%s\n' 'PASS: clean Git tree' >>"$command_log"
+  tree_state=clean
+fi
+run_check 'Swift package tests' swift test
+run_check 'Xcode macOS build' xcodebuild \
+  -project apps/macos/Automaatkorrektor.xcodeproj \
+  -scheme Automaatkorrektor \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  -derivedDataPath "$temporary_directory/DerivedData" \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+
+commit=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || printf '%s' unknown)
+os_version=$(sw_vers 2>/dev/null | paste -sd '; ' - || printf '%s' unavailable)
+xcode_version=$(xcodebuild -version 2>/dev/null | paste -sd '; ' - || printf '%s' unavailable)
+safari_version=$(defaults read /Applications/Safari.app/Contents/Info CFBundleShortVersionString 2>/dev/null || printf '%s' unavailable)
+chrome_version=$(defaults read '/Applications/Google Chrome.app/Contents/Info' CFBundleShortVersionString 2>/dev/null || printf '%s' unavailable)
+
+if [ -n "$manual_evidence_path" ]; then
+  if [ ! -f "$manual_evidence_path" ]; then
+    printf 'manual evidence file not found: %s\n' "$manual_evidence_path" >&2
+    exit 64
+  fi
+  seen_evidence="$temporary_directory/seen-manual-evidence"
+  : > "$seen_evidence"
+  while IFS=$'\t' read -r evidence_id evidence_status evidence_note; do
+    case "$evidence_id" in ''|'#'*) continue ;; esac
+    case "$evidence_id" in
+      integration-native-host|integration-permission|manual-textedit|manual-safari|\
+      manual-chrome|manual-permission-ui|manual-menu-shortcut|manual-errors-cancellation|\
+      manual-privacy-canary|manual-supported-os|boundary-api-contract) ;;
+      *)
+        printf 'unknown manual evidence id: %s\n' "$evidence_id" >&2
+        exit 64
+        ;;
+    esac
+    if grep -Fxq "$evidence_id" "$seen_evidence"; then
+      printf 'duplicate manual evidence id: %s\n' "$evidence_id" >&2
+      exit 64
+    fi
+    printf '%s\n' "$evidence_id" >> "$seen_evidence"
+    case "$evidence_status" in PASS|FAIL|PENDING) ;; *)
+      printf 'invalid status for %s: %s\n' "$evidence_id" "$evidence_status" >&2
+      exit 64
+      ;;
+    esac
+    if [ "$evidence_status" != PENDING ] && [ -z "${evidence_note:-}" ]; then
+      printf 'PASS/FAIL requires a metadata-only evidence note for %s\n' "$evidence_id" >&2
+      exit 64
+    fi
+    case "${evidence_note:-}" in
+      *'AUTOMAATKORREKTOR-PRIVACY-CANARY-'*|*'|'*)
+        printf 'unsafe evidence note for %s\n' "$evidence_id" >&2
+        exit 64
+        ;;
+    esac
+  done < "$manual_evidence_path"
+fi
+
+manual_value() {
+  requested_id=$1
+  requested_column=$2
+  awk -F '\t' -v id="$requested_id" -v column="$requested_column" \
+    '$1 == id { print $column; found = 1; exit } END { if (!found) exit 1 }' \
+    "$manual_evidence_path"
+}
+
+rows="$temporary_directory/rows.tsv"
+: > "$rows"
+
+add_automatic() {
+  printf '%s\t%s\t%s\t%s\n' "$overall_automation" "$1" "$2" "$3" >> "$rows"
+}
+
+add_pending() {
+  evidence_id=$1
+  title=$2
+  default_note=$3
+  status=PENDING
+  note=$default_note
+  if [ -n "$manual_evidence_path" ]; then
+    supplied_status=$(manual_value "$evidence_id" 2 2>/dev/null || true)
+    supplied_note=$(manual_value "$evidence_id" 3 2>/dev/null || true)
+    [ -z "$supplied_status" ] || status=$supplied_status
+    [ -z "$supplied_note" ] || note=$supplied_note
+  fi
+  printf '%s\t%s\t%s\t%s\n' "$status" "$evidence_id" "$title" "$note" >> "$rows"
+}
+
+# Six deterministic core checks.
+add_automatic core-eligibility 'Eligibility and no-read policy' 'AutomaatkorrektorMacOSTests: closed allowlist and no content access.'
+add_automatic core-protected 'Protected controls' 'AutomaatkorrektorMacOSTests: protected controls stop before content or API access.'
+add_automatic core-sequencing 'LanguageCheckUseCase sequencing' 'AutomaatkorrektorCoreTests: one read, one detection, verdict-only output.'
+add_automatic core-latest-wins 'Latest check wins' 'AutomaatkorrektorCoreTests: obsolete work is cancelled and ignored.'
+add_automatic core-presentation 'Exhaustive presentation states' 'LanguageCheckViewModelTests: approved mutually exclusive states.'
+add_automatic core-permission-isolation 'Permission isolation' 'AccessibilityPermissionFlowTests: permission checks never read text.'
+
+# Six API-adapter checks.
+add_automatic api-request 'Exact POST /detect request' 'LanguageAPIAdapterTests: method, headers, URL, and one Unicode text field.'
+add_automatic api-verdicts 'Three verdicts' 'LanguageAPIAdapterTests: jah, ei, and ebakindel remain distinct.'
+add_automatic api-errors 'Stable error mapping' 'LanguageAPIAdapterTests: protocol, HTTP, and transport mappings.'
+add_automatic api-deadline 'Three-second deadline and no retry' 'LanguageAPIAdapterTests: three-second configuration and one request.'
+add_automatic api-url-policy 'Base URL security' 'APIBaseURLSettingsTests: loopback HTTP only and HTTPS elsewhere.'
+add_automatic api-ephemeral 'Ephemeral log-free transport' 'LanguageAPIAdapterTests: no cache, cookies, credentials, redirects, or body logging.'
+
+# Six adapter integration checks. Two require operator-controlled macOS state.
+add_pending integration-native-host 'Deterministic native text-control host' 'Run the native-host checklist with Accessibility permission.'
+add_automatic integration-browser-fixture 'Offline Safari and Chrome fixture' 'Synthetic offline fixture matrix is packaged and tested.'
+add_automatic integration-chrome-activation 'Chrome metadata-only activation' 'Adapter test reacquires focus after metadata-only activation.'
+add_automatic integration-focus-race 'Focus-race rejection' 'Adapter tests reject identity and metadata changes before networking.'
+add_pending integration-permission 'Real permission changes' 'Grant and revoke real TCC Accessibility permission using the operator checklist.'
+add_automatic integration-session 'Real ephemeral URLSession configuration' 'URLProtocol integration and concrete ephemeral configuration tests pass.'
+
+# Eight repeatable manual checks.
+add_pending manual-textedit 'TextEdit' 'Run the TextEdit matrix on the release candidate.'
+add_pending manual-safari 'Safari standard fields' 'Run the offline Safari fixture matrix.'
+add_pending manual-chrome 'Chrome standard fields' 'Run the offline Chrome fixture matrix.'
+add_pending manual-permission-ui 'Permission and recovery UI' 'Run missing, granted, and revoked permission states.'
+add_pending manual-menu-shortcut 'Menu and shortcut equivalence' 'Run both explicit actions and compare visible outcomes.'
+add_pending manual-errors-cancellation 'Visible failures and cancellation' 'Exercise timeout, unavailable, incompatible, and silent cancellation states.'
+add_pending manual-privacy-canary 'Synthetic privacy canary' 'Run the one-use canary procedure; do not put the canary in this file or report.'
+add_pending manual-supported-os 'macOS 14 and development macOS' 'Run the core manual matrix on macOS 14 and the current development macOS.'
+
+# Three release-boundary checks.
+add_pending boundary-api-contract 'Tested language API contract and version' 'Record the tested API repository commit and confirm POST /detect wire compatibility.'
+add_automatic boundary-supported-scope 'Limited compatibility claims' 'README claims only TextEdit and standard Safari/Chrome fields.'
+add_automatic boundary-report 'Reproducible metadata-only report' 'This script records metadata, commands, and exactly 29 status rows.'
+
+row_count=$(wc -l < "$rows" | tr -d ' ')
+if [ "$row_count" -ne 29 ]; then
+  printf 'internal error: expected 29 evidence rows, got %s\n' "$row_count" >&2
+  exit 70
+fi
+
+failed_count=$(awk -F '\t' '$1 == "FAIL" { count += 1 } END { print count + 0 }' "$rows")
+pending_count=$(awk -F '\t' '$1 == "PENDING" { count += 1 } END { print count + 0 }' "$rows")
+passed_count=$(awk -F '\t' '$1 == "PASS" { count += 1 } END { print count + 0 }' "$rows")
+if [ "$failed_count" -eq 0 ] && [ "$pending_count" -eq 0 ]; then
+  decision=READY
+else
+  decision=BLOCKED
+fi
+
+{
+  printf '# Automaatkorrektor macOS v0.1 release evidence\n\n'
+  printf '**Release decision:** %s\n\n' "$decision"
+  printf 'All 29 rows are required. A FAIL or PENDING row blocks release; there is no score or waiver.\n\n'
+  printf '## Environment\n\n'
+  printf -- '- Commit: `%s`\n' "$commit"
+  printf -- '- Git tree: `%s`\n' "$tree_state"
+  printf -- '- OS: `%s`\n' "$os_version"
+  printf -- '- Xcode: `%s`\n' "$xcode_version"
+  printf -- '- Safari %s\n' "$safari_version"
+  printf -- '- Chrome %s\n' "$chrome_version"
+  printf -- '- Result: %s passed, %s failed, %s pending\n\n' "$passed_count" "$failed_count" "$pending_count"
+  printf '## Commands\n\n'
+  printf '```text\n'
+  printf '%s\n' 'swift format lint --recursive --strict Sources Tests Package.swift'
+  printf '%s\n' 'git diff --check'
+  printf '%s\n' 'git status --porcelain --untracked-files=normal'
+  printf '%s\n' 'swift test'
+  printf '%s\n' "xcodebuild -project apps/macos/Automaatkorrektor.xcodeproj -scheme Automaatkorrektor -configuration Debug -destination platform=macOS CODE_SIGNING_ALLOWED=NO build"
+  printf '```\n\n'
+  printf '## Required evidence\n\n'
+  printf '| Status | ID | Check | Evidence |\n'
+  printf '|---|---|---|---|\n'
+  while IFS=$'\t' read -r status evidence_id title note; do
+    printf '| %s | %s | %s | %s |\n' "$status" "$evidence_id" "$title" "$note"
+  done < "$rows"
+  printf '\n## Privacy\n\n'
+  printf 'The report intentionally contains no selected text, request body, response body, or privacy-canary value. '\
+  printf 'A canary value belongs only in the one stub request body inspected during the operator procedure.\n'
+} > "$report_path"
+
+if grep -Eq 'AUTOMAATKORREKTOR-PRIVACY-CANARY-[[:alnum:]-]+' "$report_path"; then
+  printf 'privacy failure: report contains a canary value\n' >&2
+  exit 1
+fi
+
+printf 'Report: %s\n' "$report_path"
+printf 'Decision: %s (%s pass, %s fail, %s pending)\n' \
+  "$decision" "$passed_count" "$failed_count" "$pending_count"
+
+if [ "$decision" = READY ]; then
+  exit 0
+fi
+exit 2

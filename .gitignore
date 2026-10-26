@@ -11,6 +11,7 @@ CLAUDE.md
 docs/agents/
 .scratch/
 GLOSSARY.md
+.release-evidence/
 
 # Windows / .NET
 **/bin/

@@ -1,0 +1,12 @@
+# id	status	evidence note (metadata only; never selected text)
+integration-native-host	PENDING	Run the native-host checklist.
+integration-permission	PENDING	Grant and revoke real Accessibility permission.
+manual-textedit	PENDING	Run the TextEdit matrix.
+manual-safari	PENDING	Run the offline Safari fixture matrix.
+manual-chrome	PENDING	Run the offline Chrome fixture matrix.
+manual-permission-ui	PENDING	Run denied, granted, and revoked permission UI checks.
+manual-menu-shortcut	PENDING	Compare menu and shortcut behavior.
+manual-errors-cancellation	PENDING	Run visible error and cancellation checks.
+manual-privacy-canary	PENDING	Run the volatile synthetic canary procedure.
+manual-supported-os	PENDING	Run on macOS 14 and the current development macOS.
+boundary-api-contract	PENDING	Record the tested language API commit.
