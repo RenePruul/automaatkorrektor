@@ -12,17 +12,17 @@ struct APIBaseURL: Sendable, Equatable {
 
   init(validating value: String) throws {
     guard !value.isEmpty,
-          value == value.trimmingCharacters(in: .whitespacesAndNewlines),
-          let components = URLComponents(string: value),
-          let scheme = components.scheme?.lowercased(),
-          let host = components.host?.lowercased(),
-          !host.isEmpty,
-          components.user == nil,
-          components.password == nil,
-          components.path.isEmpty,
-          components.query == nil,
-          components.fragment == nil,
-          let resolvedURL = components.url
+      value == value.trimmingCharacters(in: .whitespacesAndNewlines),
+      let components = URLComponents(string: value),
+      let scheme = components.scheme?.lowercased(),
+      let host = components.host?.lowercased(),
+      !host.isEmpty,
+      components.user == nil,
+      components.password == nil,
+      components.path.isEmpty,
+      components.query == nil,
+      components.fragment == nil,
+      let resolvedURL = components.url
     else {
       throw ValidationError.invalid
     }
@@ -77,7 +77,7 @@ final class APISettingsStore: ObservableObject {
     self.storage = storage
 
     if let stored = storage.string(forKey: Self.storageKey),
-       let validated = try? APIBaseURL(validating: stored)
+      let validated = try? APIBaseURL(validating: stored)
     {
       baseURL = validated
       draftBaseURL = stored

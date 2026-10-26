@@ -24,6 +24,13 @@ struct LanguageCheckPresentation: Sendable, Equatable {
   }
 }
 
+private let readyPresentation = LanguageCheckPresentation(
+  title: "Programm on tööks valmis",
+  detail: "Vali tekst ja käivita eesti keele kontroll.",
+  symbol: "checkmark.circle.fill",
+  tone: .success
+)
+
 extension LanguageCheckPresentationState {
   var presentation: LanguageCheckPresentation {
     switch self {
@@ -97,15 +104,35 @@ extension LanguageCheckPresentationState {
 @MainActor
 final class LanguageCheckViewModel: ObservableObject {
   @Published private(set) var state: LanguageCheckPresentationState = .waiting
+  @Published private(set) var showsAccessibilityInstructions = false
 
   private let useCase: LanguageCheckUseCase
+  private let accessibilityPermission: any AccessibilityPermissionControlling
+  private var hasAccessibilityPermission: Bool?
   private var generation = 0
 
-  init(useCase: LanguageCheckUseCase) {
+  init(
+    useCase: LanguageCheckUseCase,
+    accessibilityPermission: any AccessibilityPermissionControlling
+  ) {
     self.useCase = useCase
+    self.accessibilityPermission = accessibilityPermission
+  }
+
+  var visiblePresentation: LanguageCheckPresentation {
+    if state == .waiting, hasAccessibilityPermission == true {
+      return readyPresentation
+    }
+    return state.presentation
   }
 
   func check() async {
+    guard accessibilityPermission.checkPermission() else {
+      await applyMissingAccessibilityPermission()
+      return
+    }
+    hasAccessibilityPermission = true
+    showsAccessibilityInstructions = false
     generation += 1
     let checkGeneration = generation
     state = .checking
@@ -128,9 +155,33 @@ final class LanguageCheckViewModel: ObservableObject {
     }
   }
 
+  func refreshAccessibilityPermission() async {
+    if accessibilityPermission.checkPermission() {
+      hasAccessibilityPermission = true
+      showsAccessibilityInstructions = false
+      if state == .blocked(.accessibilityPermissionRequired) {
+        state = .waiting
+      }
+    } else {
+      await applyMissingAccessibilityPermission()
+    }
+  }
+
+  func openAccessibilitySettings() {
+    accessibilityPermission.openSettings()
+    showsAccessibilityInstructions = true
+  }
+
   func dismiss() async {
     generation += 1
     await useCase.cancel()
     state = .waiting
+  }
+
+  private func applyMissingAccessibilityPermission() async {
+    hasAccessibilityPermission = false
+    generation += 1
+    await useCase.cancel()
+    state = .blocked(.accessibilityPermissionRequired)
   }
 }

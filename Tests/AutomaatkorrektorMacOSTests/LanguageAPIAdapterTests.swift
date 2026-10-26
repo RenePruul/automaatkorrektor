@@ -6,11 +6,13 @@ import Testing
 
 @Suite("Language API adapter")
 struct LanguageAPIAdapterTests {
-  @Test("one request contains only the Unicode selected text and maps every verdict", arguments: [
-    ("jah", LanguageVerdict.estonian),
-    ("ei", LanguageVerdict.notEstonian),
-    ("ebakindel", LanguageVerdict.uncertain),
-  ])
+  @Test(
+    "one request contains only the Unicode selected text and maps every verdict",
+    arguments: [
+      ("jah", LanguageVerdict.estonian),
+      ("ei", LanguageVerdict.notEstonian),
+      ("ebakindel", LanguageVerdict.uncertain),
+    ])
   func exactRequestAndVerdicts(wireVerdict: String, expected: LanguageVerdict) async throws {
     let transport = RecordingHTTPTransport(
       responses: [.success(response(status: 200, body: "{\"verdict\":\"\(wireVerdict)\"}"))]
@@ -37,14 +39,16 @@ struct LanguageAPIAdapterTests {
     #expect(object == ["text": "Tere, õun 🍎"])
   }
 
-  @Test("invalid responses map to stable failures", arguments: [
-    (200, "{\"verdict\":\"maybe\"}", LanguageCheckFailure.incompatibleService),
-    (200, "{}", LanguageCheckFailure.invalidResponse),
-    (200, "not-json", LanguageCheckFailure.invalidResponse),
-    (429, "PRIVATE SERVER BODY", LanguageCheckFailure.rateLimited),
-    (503, "PRIVATE SERVER BODY", LanguageCheckFailure.serverFailure),
-    (404, "PRIVATE SERVER BODY", LanguageCheckFailure.otherHTTPFailure),
-  ])
+  @Test(
+    "invalid responses map to stable failures",
+    arguments: [
+      (200, "{\"verdict\":\"maybe\"}", LanguageCheckFailure.incompatibleService),
+      (200, "{}", LanguageCheckFailure.invalidResponse),
+      (200, "not-json", LanguageCheckFailure.invalidResponse),
+      (429, "PRIVATE SERVER BODY", LanguageCheckFailure.rateLimited),
+      (503, "PRIVATE SERVER BODY", LanguageCheckFailure.serverFailure),
+      (404, "PRIVATE SERVER BODY", LanguageCheckFailure.otherHTTPFailure),
+    ])
   func stableResponseFailures(status: Int, body: String, expected: LanguageCheckFailure) async {
     let transport = RecordingHTTPTransport(
       responses: [.success(response(status: status, body: body))]
@@ -59,11 +63,13 @@ struct LanguageAPIAdapterTests {
     }
   }
 
-  @Test("transport errors map without retrying", arguments: [
-    (URLError(.timedOut), LanguageCheckFailure.timeout),
-    (URLError(.cannotConnectToHost), LanguageCheckFailure.unavailableService),
-    (URLError(.secureConnectionFailed), LanguageCheckFailure.insecureConnection),
-  ])
+  @Test(
+    "transport errors map without retrying",
+    arguments: [
+      (URLError(.timedOut), LanguageCheckFailure.timeout),
+      (URLError(.cannotConnectToHost), LanguageCheckFailure.unavailableService),
+      (URLError(.secureConnectionFailed), LanguageCheckFailure.insecureConnection),
+    ])
   func transportFailures(error: URLError, expected: LanguageCheckFailure) async {
     let transport = RecordingHTTPTransport(responses: [.failure(error)])
     let detector = LanguageAPIClient(
@@ -116,15 +122,17 @@ struct APIBaseURLSettingsTests {
     #expect(try APIBaseURL(validating: "http://[::1]:8000").url.host == "::1")
   }
 
-  @Test("remote HTTP and URL capabilities that can leak selected text are rejected", arguments: [
-    "http://example.com",
-    "https://user:secret@example.com",
-    "https://example.com/api",
-    "https://example.com?tenant=1",
-    "https://example.com#detect",
-    "ftp://example.com",
-    "not a url",
-  ])
+  @Test(
+    "remote HTTP and URL capabilities that can leak selected text are rejected",
+    arguments: [
+      "http://example.com",
+      "https://user:secret@example.com",
+      "https://example.com/api",
+      "https://example.com?tenant=1",
+      "https://example.com#detect",
+      "ftp://example.com",
+      "not a url",
+    ])
   func rejectsUnsafeValues(value: String) {
     #expect(throws: APIBaseURL.ValidationError.self) {
       try APIBaseURL(validating: value)

@@ -76,13 +76,13 @@ struct LanguageAPIClient: LanguageDetecting, Sendable {
     case .timedOut:
       return .timeout
     case .appTransportSecurityRequiresSecureConnection,
-         .secureConnectionFailed,
-         .serverCertificateHasBadDate,
-         .serverCertificateUntrusted,
-         .serverCertificateHasUnknownRoot,
-         .serverCertificateNotYetValid,
-         .clientCertificateRejected,
-         .clientCertificateRequired:
+      .secureConnectionFailed,
+      .serverCertificateHasBadDate,
+      .serverCertificateUntrusted,
+      .serverCertificateHasUnknownRoot,
+      .serverCertificateNotYetValid,
+      .clientCertificateRejected,
+      .clientCertificateRequired:
       return .insecureConnection
     default:
       return .unavailableService

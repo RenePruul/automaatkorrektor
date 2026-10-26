@@ -85,8 +85,15 @@ private func makeViewModel(
     useCase: LanguageCheckUseCase(
       selectionReader: reader,
       languageDetector: detector
-    )
+    ),
+    accessibilityPermission: ViewModelGrantedPermissionController()
   )
+}
+
+@MainActor
+private final class ViewModelGrantedPermissionController: AccessibilityPermissionControlling {
+  func checkPermission() -> Bool { true }
+  func openSettings() {}
 }
 
 private struct SelectionReaderStub: SelectionReading {

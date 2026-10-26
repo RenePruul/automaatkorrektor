@@ -14,9 +14,10 @@
 		A10000000000000000000006 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* MenuBarController.swift */; };
 		A10000000000000000000007 /* AutomaatkorrektorCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* AutomaatkorrektorCore.framework */; };
 		A10000000000000000000008 /* AutomaatkorrektorCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* AutomaatkorrektorCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		A10000000000000000000009 /* LanguageAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* LanguageAPI.swift */; };
-		A1000000000000000000000A /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* APISettings.swift */; };
-		A1000000000000000000000B /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* SettingsWindowController.swift */; };
+		A10000000000000000000009 /* AccessibilityPermissionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* AccessibilityPermissionController.swift */; };
+		A1000000000000000000000A /* LanguageAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* LanguageAPI.swift */; };
+		A1000000000000000000000B /* APISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* APISettings.swift */; };
+		A1000000000000000000000C /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* SettingsWindowController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,9 +51,10 @@
 		A20000000000000000000006 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MenuBarController.swift; path = ../../Sources/AutomaatkorrektorMacOS/MenuBarController.swift; sourceTree = SOURCE_ROOT; };
 		A20000000000000000000007 /* Automaatkorrektor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Automaatkorrektor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000008 /* AutomaatkorrektorCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = AutomaatkorrektorCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		A20000000000000000000009 /* LanguageAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LanguageAPI.swift; path = ../../Sources/AutomaatkorrektorMacOS/LanguageAPI.swift; sourceTree = SOURCE_ROOT; };
-		A2000000000000000000000A /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APISettings.swift; path = ../../Sources/AutomaatkorrektorMacOS/APISettings.swift; sourceTree = SOURCE_ROOT; };
-		A2000000000000000000000B /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsWindowController.swift; path = ../../Sources/AutomaatkorrektorMacOS/SettingsWindowController.swift; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000009 /* AccessibilityPermissionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AccessibilityPermissionController.swift; path = ../../Sources/AutomaatkorrektorMacOS/AccessibilityPermissionController.swift; sourceTree = SOURCE_ROOT; };
+		A2000000000000000000000A /* LanguageAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LanguageAPI.swift; path = ../../Sources/AutomaatkorrektorMacOS/LanguageAPI.swift; sourceTree = SOURCE_ROOT; };
+		A2000000000000000000000B /* APISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APISettings.swift; path = ../../Sources/AutomaatkorrektorMacOS/APISettings.swift; sourceTree = SOURCE_ROOT; };
+		A2000000000000000000000C /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsWindowController.swift; path = ../../Sources/AutomaatkorrektorMacOS/SettingsWindowController.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,7 +75,7 @@
 			sourceTree = "<group>";
 		};
 		A80000000000000000000003 /* AutomaatkorrektorCore */ = {isa = PBXGroup; children = (A20000000000000000000001 /* LanguageCheck.swift */, ); name = AutomaatkorrektorCore; sourceTree = "<group>"; };
-		A80000000000000000000004 /* AutomaatkorrektorMacOS */ = {isa = PBXGroup; children = (A2000000000000000000000A, A20000000000000000000002, A20000000000000000000003, A20000000000000000000009, A20000000000000000000004, A20000000000000000000005, A20000000000000000000006, A2000000000000000000000B, ); name = AutomaatkorrektorMacOS; sourceTree = "<group>"; };
+		A80000000000000000000004 /* AutomaatkorrektorMacOS */ = {isa = PBXGroup; children = (A2000000000000000000000B, A20000000000000000000009, A20000000000000000000002, A20000000000000000000003, A2000000000000000000000A, A20000000000000000000004, A20000000000000000000005, A20000000000000000000006, A2000000000000000000000C, ); name = AutomaatkorrektorMacOS; sourceTree = "<group>"; };
 		A80000000000000000000005 /* Products */ = {isa = PBXGroup; children = (A20000000000000000000007 /* Automaatkorrektor.app */, A20000000000000000000008 /* AutomaatkorrektorCore.framework */, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -121,7 +123,7 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		AA0000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* LanguageCheck.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
-		AA0000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A1000000000000000000000A, A10000000000000000000002, A10000000000000000000003, A10000000000000000000009, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A1000000000000000000000B, ); runOnlyForDeploymentPostprocessing = 0; };
+		AA0000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A1000000000000000000000B, A10000000000000000000009, A10000000000000000000002, A10000000000000000000003, A1000000000000000000000A, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A1000000000000000000000C, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
