@@ -27,3 +27,9 @@ pending. Follow [the manual checklist](release/MANUAL-CHECKLIST.md), keep the
 filled evidence TSV in `.release-evidence/`, and pass it back with
 `--manual-evidence`. Selected text and privacy-canary values must never be put
 in the evidence TSV or report.
+
+The manual matrix uses the dependency-free, loopback-only
+[`tools/language_api_stub.py`](tools/language_api_stub.py) fixture. It provides
+controlled verdict, delay, incompatible-response, server-error, request-count,
+and privacy-canary metadata without storing or logging selected text. It is
+test infrastructure and is not a language detector.

@@ -64,6 +64,8 @@ else
   printf '%s\n' 'PASS: clean Git tree' >>"$command_log"
   tree_state=clean
 fi
+run_check 'offline language API fixture tests' \
+  python3 -m unittest discover -s Tests/ReleaseEvidenceTests -p 'test_*.py'
 run_check 'Swift package tests' swift test
 run_check 'Xcode macOS build' xcodebuild \
   -project apps/macos/Automaatkorrektor.xcodeproj \
@@ -222,6 +224,7 @@ fi
   printf '%s\n' 'swift format lint --recursive --strict Sources Tests Package.swift'
   printf '%s\n' 'git diff --check'
   printf '%s\n' 'git status --porcelain --untracked-files=normal'
+  printf '%s\n' "python3 -m unittest discover -s Tests/ReleaseEvidenceTests -p 'test_*.py'"
   printf '%s\n' 'swift test'
   printf '%s\n' "xcodebuild -project apps/macos/Automaatkorrektor.xcodeproj -scheme Automaatkorrektor -configuration Debug -destination platform=macOS CODE_SIGNING_ALLOWED=NO build"
   printf '```\n\n'

@@ -2,6 +2,10 @@
 .idea/
 .vscode/
 
+# Python test fixtures
+__pycache__/
+*.py[cod]
+
 # Local coding-agent configuration
 .agents/
 .codex/

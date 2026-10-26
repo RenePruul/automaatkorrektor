@@ -14,6 +14,51 @@ scripts/release-gate.sh \
 
 The command exits with status 2 until all 29 required rows pass.
 
+## Offline stub language API
+
+`tools/language_api_stub.py` is test-only infrastructure. It uses only the
+Python standard library, binds exclusively to `127.0.0.1`, and accepts exactly
+`POST /detect` with `{"text":"..."}`. It never stores or prints request bodies.
+Its event output contains only request count, body byte count, field names, and
+the optional canary-match boolean.
+
+Start one deterministic verdict at the client's default API address:
+
+```sh
+AUTOMAATKORREKTOR_STUB_PORT=8000 \
+AUTOMAATKORREKTOR_STUB_VERDICT=jah \
+python3 tools/language_api_stub.py
+```
+
+Restart with `ei` or `ebakindel` for the other verdicts. The following response
+and delay modes exercise recovery behavior:
+
+```sh
+# Client's three-second timeout; cancelled connections are expected.
+AUTOMAATKORREKTOR_STUB_PORT=8000 \
+AUTOMAATKORREKTOR_STUB_DELAY_SECONDS=4 \
+python3 tools/language_api_stub.py
+
+# Unknown verdict / incompatible service.
+AUTOMAATKORREKTOR_STUB_PORT=8000 \
+AUTOMAATKORREKTOR_STUB_RESPONSE=incompatible \
+python3 tools/language_api_stub.py
+
+# HTTP 503 / unavailable server behavior.
+AUTOMAATKORREKTOR_STUB_PORT=8000 \
+AUTOMAATKORREKTOR_STUB_RESPONSE=server-error \
+python3 tools/language_api_stub.py
+```
+
+While it runs, inspect privacy-safe volatile state with:
+
+```sh
+curl --fail --silent http://127.0.0.1:8000/_test/status
+```
+
+The response contains `request_count` and allowlisted metadata, never selected
+text. Stop the fixture with Control-C. Do not redirect fixture output to a file.
+
 ## Native host and TextEdit
 
 1. Build the release candidate and `NativeTextControlHost` with the full Xcode
@@ -49,15 +94,28 @@ The command exits with status 2 until all 29 required rows pass.
 
 ## Privacy canary
 
-1. Generate a unique value beginning with the documented canary prefix; keep
-   the complete value only in volatile shell state.
-2. Select it in one eligible synthetic field and perform exactly one check
-   against the stub API.
-3. Confirm the complete value occurs once in the stub request body and nowhere
-   in the request URL, headers, app UI, settings, unified log, files, caches,
-   crash reports, history, or generated release report.
-4. Delete the stub request capture after recording only pass/fail and a neutral
-   evidence note. Never copy the complete value into the TSV or report.
+1. Type a unique value beginning `AUTOMAATKORREKTOR-PRIVACY-CANARY-` into an
+   eligible synthetic field, but do not invoke the check yet. Do not use the
+   clipboard.
+2. Enter the same value without terminal echo and derive only its hash in a
+   volatile environment variable:
+
+   ```sh
+   IFS= read -r -s canary_value
+   export AUTOMAATKORREKTOR_STUB_CANARY_SHA256="$(printf %s "$canary_value" | shasum -a 256 | awk '{print $1}')"
+   unset canary_value
+   AUTOMAATKORREKTOR_STUB_PORT=8000 python3 tools/language_api_stub.py
+   ```
+
+3. Perform exactly one check. Query `/_test/status` and require
+   `request_count: 1` and `canary_match: true`. The fixture compares SHA-256
+   digests and never retains or emits the complete value.
+4. Confirm the complete value appears nowhere in the request URL, headers, app
+   UI, settings, unified log, files, caches, crash reports, history, or
+   generated release report.
+5. Stop the fixture, unset `AUTOMAATKORREKTOR_STUB_CANARY_SHA256`, and record
+   only pass/fail plus a neutral evidence note. Never copy the value or its hash
+   into the TSV or report.
 
 ## OS and API boundaries
 

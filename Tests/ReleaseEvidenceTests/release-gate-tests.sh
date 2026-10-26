@@ -17,6 +17,11 @@ case "$1" in
 esac
 EOF
 
+cat > "$fake_bin/python3" <<'EOF'
+#!/bin/sh
+printf '%s\n' 'Ran 5 tests' 'OK'
+EOF
+
 cat > "$fake_bin/xcodebuild" <<'EOF'
 #!/bin/sh
 if [ "${1:-}" = "-version" ]; then
