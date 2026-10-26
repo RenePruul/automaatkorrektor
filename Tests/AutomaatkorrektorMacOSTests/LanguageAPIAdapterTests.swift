@@ -109,6 +109,24 @@ struct LanguageAPIAdapterTests {
     #expect(configuration.urlCredentialStorage == nil)
     #expect(configuration.httpShouldSetCookies == false)
   }
+
+  @Test("a redirect is rejected without retransmitting selected text")
+  func rejectsRedirect() async {
+    RedirectRecordingURLProtocol.reset()
+    let configuration = LanguageAPITransport.makeConfiguration()
+    configuration.protocolClasses = [RedirectRecordingURLProtocol.self]
+    let detector = LanguageAPIClient(
+      baseURL: { URL(string: "https://configured.example.test")! },
+      transport: LanguageAPITransport(configuration: configuration)
+    )
+
+    await #expect(throws: LanguageCheckFailure.otherHTTPFailure) {
+      try await detector.detectLanguage(of: SelectedText("AINULT-ÜKS-KORD"))
+    }
+
+    #expect(RedirectRecordingURLProtocol.requestedPaths() == ["/detect"])
+    #expect(RedirectRecordingURLProtocol.redirectedRequestBodies().isEmpty)
+  }
 }
 
 @Suite("API base URL settings")
@@ -207,5 +225,92 @@ private final class MemoryAPISettingsStorage: APISettingsPersisting, @unchecked 
 
   func set(_ value: String, forKey key: String) {
     values[key] = value
+  }
+}
+
+private final class RedirectRecordingURLProtocol: URLProtocol, @unchecked Sendable {
+  private static let recorder = RedirectRequestRecorder()
+
+  static func reset() {
+    recorder.reset()
+  }
+
+  static func requestedPaths() -> [String] {
+    recorder.requestedPaths()
+  }
+
+  static func redirectedRequestBodies() -> [Data] {
+    recorder.redirectedRequestBodies()
+  }
+
+  override class func canInit(with request: URLRequest) -> Bool {
+    request.url?.host == "configured.example.test"
+  }
+
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    request
+  }
+
+  override func startLoading() {
+    let path = request.url?.path ?? ""
+    Self.recorder.record(path: path, body: request.httpBody)
+
+    if path == "/detect" {
+      let response = HTTPURLResponse(
+        url: request.url!,
+        statusCode: 307,
+        httpVersion: "HTTP/1.1",
+        headerFields: ["Location": "https://configured.example.test/redirected"]
+      )!
+      client?.urlProtocol(
+        self,
+        wasRedirectedTo: URLRequest(
+          url: URL(string: "https://configured.example.test/redirected")!),
+        redirectResponse: response
+      )
+      return
+    }
+
+    let response = HTTPURLResponse(
+      url: request.url!,
+      statusCode: 200,
+      httpVersion: "HTTP/1.1",
+      headerFields: ["Content-Type": "application/json"]
+    )!
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+    client?.urlProtocol(self, didLoad: Data(#"{"verdict":"jah"}"#.utf8))
+    client?.urlProtocolDidFinishLoading(self)
+  }
+
+  override func stopLoading() {}
+}
+
+private final class RedirectRequestRecorder: @unchecked Sendable {
+  private let lock = NSLock()
+  private var paths: [String] = []
+  private var redirectedBodies: [Data] = []
+
+  func reset() {
+    lock.withLock {
+      paths = []
+      redirectedBodies = []
+    }
+  }
+
+  func record(path: String, body: Data?) {
+    lock.withLock {
+      paths.append(path)
+      if path == "/redirected", let body {
+        redirectedBodies.append(body)
+      }
+    }
+  }
+
+  func requestedPaths() -> [String] {
+    lock.withLock { paths }
+  }
+
+  func redirectedRequestBodies() -> [Data] {
+    lock.withLock { redirectedBodies }
   }
 }

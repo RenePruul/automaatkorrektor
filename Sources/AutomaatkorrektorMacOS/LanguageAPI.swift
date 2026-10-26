@@ -100,13 +100,48 @@ struct LanguageAPIClient: LanguageDetecting, Sendable {
 
 final class LanguageAPITransport: LanguageAPITransporting, @unchecked Sendable {
   private let session: URLSession
+  private let redirectDelegate: RejectingRedirectDelegate
 
   init(configuration: URLSessionConfiguration = LanguageAPITransport.makeConfiguration()) {
-    session = URLSession(configuration: configuration)
+    let redirectDelegate = RejectingRedirectDelegate()
+    self.redirectDelegate = redirectDelegate
+    session = URLSession(
+      configuration: configuration,
+      delegate: redirectDelegate,
+      delegateQueue: nil
+    )
   }
 
   func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-    let (data, response) = try await session.data(for: request)
+    let taskBox = URLSessionTaskBox()
+    let (data, response): (Data, URLResponse) = try await withTaskCancellationHandler {
+      try Task.checkCancellation()
+      return try await withCheckedThrowingContinuation {
+        (continuation: CheckedContinuation<(Data, URLResponse), any Error>) in
+        let task = session.dataTask(with: request) { data, response, error in
+          if let identifier = taskBox.identifier,
+            self.redirectDelegate.consumeRejection(for: identifier)
+          {
+            continuation.resume(throwing: LanguageCheckFailure.otherHTTPFailure)
+          } else if let error {
+            continuation.resume(throwing: error)
+          } else if let data, let response {
+            continuation.resume(returning: (data, response))
+          } else {
+            continuation.resume(throwing: LanguageCheckFailure.invalidResponse)
+          }
+        }
+        taskBox.store(task)
+        if Task.isCancelled {
+          task.cancel()
+        } else {
+          task.resume()
+        }
+      }
+    } onCancel: {
+      taskBox.cancel()
+    }
+
     guard let httpResponse = response as? HTTPURLResponse else {
       throw LanguageCheckFailure.invalidResponse
     }
@@ -125,5 +160,50 @@ final class LanguageAPITransport: LanguageAPITransporting, @unchecked Sendable {
     configuration.httpShouldUsePipelining = false
     configuration.httpMaximumConnectionsPerHost = 1
     return configuration
+  }
+}
+
+private final class RejectingRedirectDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable
+{
+  private let lock = NSLock()
+  private var rejectedTaskIdentifiers: Set<Int> = []
+
+  func urlSession(
+    _ session: URLSession,
+    task: URLSessionTask,
+    willPerformHTTPRedirection response: HTTPURLResponse,
+    newRequest request: URLRequest,
+    completionHandler: @escaping (URLRequest?) -> Void
+  ) {
+    _ = lock.withLock {
+      rejectedTaskIdentifiers.insert(task.taskIdentifier)
+    }
+    completionHandler(nil)
+    task.cancel()
+  }
+
+  func consumeRejection(for taskIdentifier: Int) -> Bool {
+    lock.withLock {
+      rejectedTaskIdentifiers.remove(taskIdentifier) != nil
+    }
+  }
+}
+
+private final class URLSessionTaskBox: @unchecked Sendable {
+  private let lock = NSLock()
+  private var task: URLSessionTask?
+
+  var identifier: Int? {
+    lock.withLock { task?.taskIdentifier }
+  }
+
+  func store(_ task: URLSessionTask) {
+    lock.withLock {
+      self.task = task
+    }
+  }
+
+  func cancel() {
+    lock.withLock { task }?.cancel()
   }
 }
