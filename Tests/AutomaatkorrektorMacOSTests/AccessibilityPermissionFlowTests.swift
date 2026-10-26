@@ -150,7 +150,10 @@ private actor PermissionCountingSelectionReader: SelectionReading {
 private actor PermissionCountingDetector: LanguageDetecting {
   private(set) var requestCount = 0
 
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
     requestCount += 1
     return .estonian
   }
@@ -160,7 +163,10 @@ private actor SuspendedPermissionDetector: LanguageDetecting {
   private(set) var requestCount = 0
   private(set) var wasCancelled = false
 
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
     requestCount += 1
     do {
       try await Task.sleep(for: .seconds(60))

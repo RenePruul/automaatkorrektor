@@ -6,6 +6,37 @@ import Testing
 
 @Suite("Language API adapter")
 struct LanguageAPIAdapterTests {
+  @Test("an in-flight check keeps its URL snapshot and the next check uses the new URL")
+  @MainActor
+  func immutablePerCheckURLSnapshot() async throws {
+    let settings = APISettingsStore(storage: MemoryAPISettingsStorage())
+    let reader = URLSnapshotGatedSelectionReader()
+    let transport = RecordingHTTPTransport(responses: [
+      .success(response(status: 200, body: "{\"verdict\":\"jah\"}")),
+      .success(response(status: 200, body: "{\"verdict\":\"jah\"}")),
+    ])
+    let useCase = LanguageCheckUseCase(
+      configurationProvider: settings,
+      selectionReader: reader,
+      languageDetector: LanguageAPIClient(transport: transport)
+    )
+
+    let firstCheck = Task { try await useCase.check() }
+    await reader.waitUntilReadStarts()
+    settings.updateBaseURL("https://replacement.example.test")
+    await reader.release()
+    _ = try await firstCheck.value
+
+    _ = try await useCase.check()
+
+    let urls = await transport.requests.compactMap(\.url?.absoluteString)
+    #expect(
+      urls == [
+        "http://127.0.0.1:8000/detect",
+        "https://replacement.example.test/detect",
+      ])
+  }
+
   @Test(
     "one request contains only the Unicode selected text and maps every verdict",
     arguments: [
@@ -17,12 +48,12 @@ struct LanguageAPIAdapterTests {
     let transport = RecordingHTTPTransport(
       responses: [.success(response(status: 200, body: "{\"verdict\":\"\(wireVerdict)\"}"))]
     )
-    let detector = LanguageAPIClient(
-      baseURL: { URL(string: "http://127.0.0.1:8000")! },
-      transport: transport
-    )
+    let detector = LanguageAPIClient(transport: transport)
 
-    let verdict = try await detector.detectLanguage(of: SelectedText("Tere, õun 🍎"))
+    let verdict = try await detector.detectLanguage(
+      of: SelectedText("Tere, õun 🍎"),
+      configuration: testLanguageConfiguration
+    )
 
     #expect(verdict == expected)
     let requests = await transport.requests
@@ -53,13 +84,13 @@ struct LanguageAPIAdapterTests {
     let transport = RecordingHTTPTransport(
       responses: [.success(response(status: status, body: body))]
     )
-    let detector = LanguageAPIClient(
-      baseURL: { URL(string: "http://127.0.0.1:8000")! },
-      transport: transport
-    )
+    let detector = LanguageAPIClient(transport: transport)
 
     await #expect(throws: expected) {
-      try await detector.detectLanguage(of: SelectedText("Tere"))
+      try await detector.detectLanguage(
+        of: SelectedText("Tere"),
+        configuration: testLanguageConfiguration
+      )
     }
   }
 
@@ -72,13 +103,15 @@ struct LanguageAPIAdapterTests {
     ])
   func transportFailures(error: URLError, expected: LanguageCheckFailure) async {
     let transport = RecordingHTTPTransport(responses: [.failure(error)])
-    let detector = LanguageAPIClient(
-      baseURL: { URL(string: "https://api.example.test")! },
-      transport: transport
-    )
+    let detector = LanguageAPIClient(transport: transport)
 
     await #expect(throws: expected) {
-      try await detector.detectLanguage(of: SelectedText("Tere"))
+      try await detector.detectLanguage(
+        of: SelectedText("Tere"),
+        configuration: LanguageCheckConfiguration(
+          validatedServiceBaseURL: "https://api.example.test"
+        )
+      )
     }
     #expect(await transport.requests.count == 1)
   }
@@ -86,13 +119,13 @@ struct LanguageAPIAdapterTests {
   @Test("cancellation remains cancellation")
   func cancellation() async {
     let transport = RecordingHTTPTransport(responses: [.failure(CancellationError())])
-    let detector = LanguageAPIClient(
-      baseURL: { URL(string: "http://127.0.0.1:8000")! },
-      transport: transport
-    )
+    let detector = LanguageAPIClient(transport: transport)
 
     await #expect(throws: CancellationError.self) {
-      try await detector.detectLanguage(of: SelectedText("Tere"))
+      try await detector.detectLanguage(
+        of: SelectedText("Tere"),
+        configuration: testLanguageConfiguration
+      )
     }
   }
 
@@ -116,16 +149,41 @@ struct LanguageAPIAdapterTests {
     let configuration = LanguageAPITransport.makeConfiguration()
     configuration.protocolClasses = [RedirectRecordingURLProtocol.self]
     let detector = LanguageAPIClient(
-      baseURL: { URL(string: "https://configured.example.test")! },
       transport: LanguageAPITransport(configuration: configuration)
     )
 
     await #expect(throws: LanguageCheckFailure.otherHTTPFailure) {
-      try await detector.detectLanguage(of: SelectedText("AINULT-ÜKS-KORD"))
+      try await detector.detectLanguage(
+        of: SelectedText("AINULT-ÜKS-KORD"),
+        configuration: LanguageCheckConfiguration(
+          validatedServiceBaseURL: "https://configured.example.test"
+        )
+      )
     }
 
     #expect(RedirectRecordingURLProtocol.requestedPaths() == ["/detect"])
     #expect(RedirectRecordingURLProtocol.redirectedRequestBodies().isEmpty)
+  }
+}
+
+private actor URLSnapshotGatedSelectionReader: SelectionReading {
+  private var firstReadStarted = false
+  private var firstReadContinuation: CheckedContinuation<Void, Never>?
+
+  func readSelectedText() async -> SelectedText {
+    guard !firstReadStarted else { return SelectedText("Tere jälle") }
+    firstReadStarted = true
+    await withCheckedContinuation { firstReadContinuation = $0 }
+    return SelectedText("Tere")
+  }
+
+  func waitUntilReadStarts() async {
+    while !firstReadStarted { await Task.yield() }
+  }
+
+  func release() {
+    firstReadContinuation?.resume()
+    firstReadContinuation = nil
   }
 }
 

@@ -18,10 +18,9 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
 
     let settings = APISettingsStore()
     let useCase = LanguageCheckUseCase(
+      configurationProvider: settings,
       selectionReader: AccessibilitySelectedTextReader(),
-      languageDetector: LanguageAPIClient(
-        baseURL: { await settings.currentBaseURL() }
-      )
+      languageDetector: LanguageAPIClient()
     )
     let model = LanguageCheckViewModel(
       useCase: useCase,

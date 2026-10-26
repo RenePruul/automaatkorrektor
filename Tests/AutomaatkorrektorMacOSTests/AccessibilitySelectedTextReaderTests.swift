@@ -662,7 +662,10 @@ private final class SuspendingAXReader: AXReading, @unchecked Sendable {
 private actor SelectionRecordingDetector: LanguageDetecting {
   private(set) var receivedTexts: [String] = []
 
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
     receivedTexts.append(selectedText.value)
     return .estonian
   }

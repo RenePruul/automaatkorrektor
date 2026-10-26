@@ -126,6 +126,15 @@ final class LanguageCheckViewModel: ObservableObject {
     return state.presentation
   }
 
+  var showsRetryAction: Bool {
+    state == .failed(.unavailableService)
+  }
+
+  func retryUnavailableService() async {
+    guard showsRetryAction else { return }
+    await check()
+  }
+
   func check() async {
     guard accessibilityPermission.checkPermission() else {
       await applyMissingAccessibilityPermission()

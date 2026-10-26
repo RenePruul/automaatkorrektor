@@ -249,7 +249,10 @@ private struct ShortcutSelectionReader: SelectionReading {
 }
 
 private struct ShortcutDetector: LanguageDetecting {
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict { .estonian }
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict { .estonian }
 }
 
 private actor ControllableShortcutSelectionReader: SelectionReading {

@@ -9,6 +9,7 @@ struct LanguageCheckUseCaseTests {
     let selection = SelectionReaderStub(text: "PRIVAATSUS-KANAARILIND")
     let detector = LanguageDetectorStub(verdict: .estonian)
     let useCase = LanguageCheckUseCase(
+      configurationProvider: fixedConfiguration,
       selectionReader: selection,
       languageDetector: detector
     )
@@ -26,6 +27,7 @@ struct LanguageCheckUseCaseTests {
   func latestCheckWins() async throws {
     let detector = ControllableDetector()
     let useCase = LanguageCheckUseCase(
+      configurationProvider: fixedConfiguration,
       selectionReader: SelectionReaderStub(text: "Tere"),
       languageDetector: detector
     )
@@ -50,6 +52,7 @@ struct LanguageCheckUseCaseTests {
   func cancellationDiscardsLateResult() async {
     let detector = ControllableDetector()
     let useCase = LanguageCheckUseCase(
+      configurationProvider: fixedConfiguration,
       selectionReader: SelectionReaderStub(text: "Tere"),
       languageDetector: detector
     )
@@ -67,6 +70,96 @@ struct LanguageCheckUseCaseTests {
     } catch {
       Issue.record("Unexpected cancellation error: \(error)")
     }
+  }
+
+  @Test("each check keeps the validated configuration captured before selection")
+  func configurationSnapshotIsImmutablePerCheck() async throws {
+    let original = LanguageCheckConfiguration(
+      validatedServiceBaseURL: "https://original.example.test"
+    )
+    let replacement = LanguageCheckConfiguration(
+      validatedServiceBaseURL: "https://replacement.example.test"
+    )
+    let configuration = MutableConfigurationProvider(original)
+    let selection = GatedSelectionReader(text: "Tere")
+    let detector = ConfigurationRecordingDetector()
+    let useCase = LanguageCheckUseCase(
+      configurationProvider: configuration,
+      selectionReader: selection,
+      languageDetector: detector
+    )
+
+    let firstCheck = Task { try await useCase.check() }
+    await selection.waitUntilReadStarts()
+    await configuration.replace(with: replacement)
+    await selection.release()
+    _ = try await firstCheck.value
+
+    _ = try await useCase.check()
+
+    #expect(await detector.configurations == [original, replacement])
+  }
+}
+
+private let fixedConfiguration = FixedConfigurationProvider()
+
+private struct FixedConfigurationProvider: LanguageCheckConfiguring {
+  func currentConfiguration() -> LanguageCheckConfiguration {
+    LanguageCheckConfiguration(validatedServiceBaseURL: "https://language.example.test")
+  }
+}
+
+private actor MutableConfigurationProvider: LanguageCheckConfiguring {
+  private var configuration: LanguageCheckConfiguration
+
+  init(_ configuration: LanguageCheckConfiguration) {
+    self.configuration = configuration
+  }
+
+  func currentConfiguration() -> LanguageCheckConfiguration {
+    configuration
+  }
+
+  func replace(with configuration: LanguageCheckConfiguration) {
+    self.configuration = configuration
+  }
+}
+
+private actor GatedSelectionReader: SelectionReading {
+  private let text: String
+  private var started = false
+  private var continuation: CheckedContinuation<Void, Never>?
+
+  init(text: String) {
+    self.text = text
+  }
+
+  func readSelectedText() async throws -> SelectedText {
+    guard !started else { return SelectedText(text) }
+    started = true
+    await withCheckedContinuation { continuation = $0 }
+    return SelectedText(text)
+  }
+
+  func waitUntilReadStarts() async {
+    while !started { await Task.yield() }
+  }
+
+  func release() {
+    continuation?.resume()
+    continuation = nil
+  }
+}
+
+private actor ConfigurationRecordingDetector: LanguageDetecting {
+  private(set) var configurations: [LanguageCheckConfiguration] = []
+
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
+    configurations.append(configuration)
+    return .estonian
   }
 }
 
@@ -98,7 +191,10 @@ private actor LanguageDetectorStub: LanguageDetecting {
     receivedTexts.contains(text)
   }
 
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
     receivedTexts.append(selectedText.value)
     return verdict
   }
@@ -108,7 +204,10 @@ private actor ControllableDetector: LanguageDetecting {
   private var callCount = 0
   private var obsoleteContinuation: CheckedContinuation<Void, Never>?
 
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
     callCount += 1
     guard callCount == 1 else { return .estonian }
 

@@ -74,6 +74,49 @@ struct LanguageCheckViewModelTests {
       #expect(!state.presentation.symbol.isEmpty)
     }
   }
+
+  @Test("unavailable service offers one explicit fresh retry")
+  func unavailableServiceRetry() async {
+    let reader = CountingSelectionReader()
+    let detector = SequencedDetector(results: [
+      .failure(LanguageCheckFailure.unavailableService),
+      .success(.estonian),
+    ])
+    let model = makeViewModel(reader: reader, detector: detector)
+
+    await model.check()
+    #expect(model.state == .failed(.unavailableService))
+    #expect(model.showsRetryAction)
+    #expect(await reader.readCount == 1)
+    #expect(await detector.callCount == 1)
+
+    await model.retryUnavailableService()
+
+    #expect(model.state == .verdict(.estonian))
+    #expect(!model.showsRetryAction)
+    #expect(await reader.readCount == 2)
+    #expect(await detector.callCount == 2)
+  }
+
+  @Test("retry is unavailable for unrelated states and performs no work")
+  func retryIsContextual() async {
+    let reader = CountingSelectionReader()
+    let detector = SequencedDetector(results: [
+      .failure(LanguageCheckFailure.timeout)
+    ])
+    let model = makeViewModel(reader: reader, detector: detector)
+
+    #expect(!model.showsRetryAction)
+    await model.retryUnavailableService()
+    #expect(await reader.readCount == 0)
+
+    await model.check()
+    #expect(model.state == .failed(.timeout))
+    #expect(!model.showsRetryAction)
+    await model.retryUnavailableService()
+    #expect(await reader.readCount == 1)
+    #expect(await detector.callCount == 1)
+  }
 }
 
 @MainActor
@@ -107,7 +150,10 @@ private struct SelectionReaderStub: SelectionReading {
 private struct DetectorStub: LanguageDetecting {
   let result: Result<LanguageVerdict, any Error>
 
-  func detectLanguage(of selectedText: SelectedText) async throws -> LanguageVerdict {
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
     try result.get()
   }
 }
@@ -116,5 +162,32 @@ private actor SuspendedSelectionReader: SelectionReading {
   func readSelectedText() async throws -> SelectedText {
     try await Task.sleep(for: .seconds(60))
     return SelectedText("Tere")
+  }
+}
+
+private actor CountingSelectionReader: SelectionReading {
+  private(set) var readCount = 0
+
+  func readSelectedText() async throws -> SelectedText {
+    readCount += 1
+    return SelectedText("Tere")
+  }
+}
+
+private actor SequencedDetector: LanguageDetecting {
+  private var results: [Result<LanguageVerdict, any Error>]
+  private(set) var callCount = 0
+
+  init(results: [Result<LanguageVerdict, any Error>]) {
+    self.results = results
+  }
+
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
+    let result = results[callCount]
+    callCount += 1
+    return try result.get()
   }
 }
