@@ -38,12 +38,14 @@ struct AccessibilitySelectedTextReaderTests {
     ]
   )
   func exactSupportedApplicationAllowlist(bundleIdentifier: String) async throws {
+    let identity = AXApplicationIdentity(
+      processIdentifier: 42,
+      bundleIdentifier: bundleIdentifier
+    )
     let accessibility = AXReaderSpy(
       snapshots: [.textEditTextArea, .textEditTextArea],
-      applicationIdentities: [
-        AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: bundleIdentifier),
-        AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: bundleIdentifier),
-      ]
+      frontmostApplicationIdentity: identity,
+      applicationIdentities: [identity, identity]
     )
 
     let selectedText = try await AccessibilitySelectedTextReader(
@@ -148,6 +150,64 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.retainedElementCount == 0)
   }
 
+  @Test("the frontmost application is revalidated after capture before networking")
+  func stableFrontmostApplicationReachesDetector() async throws {
+    let textEdit = AXApplicationIdentity(
+      processIdentifier: 42,
+      bundleIdentifier: "com.apple.TextEdit"
+    )
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea, .textEditTextArea],
+      frontmostApplicationIdentity: textEdit,
+      applicationIdentities: [textEdit, textEdit]
+    )
+    let detector = SelectionRecordingDetector()
+    let useCase = LanguageCheckUseCase(
+      selectionReader: AccessibilitySelectedTextReader(accessibility: accessibility),
+      languageDetector: detector
+    )
+
+    let verdict = try await useCase.check()
+
+    #expect(verdict == .estonian)
+    #expect(accessibility.frontmostApplicationIdentityLookupCount == 1)
+    #expect(await detector.receivedTexts == ["Tere"])
+    #expect(accessibility.retainedElementCount == 0)
+  }
+
+  @Test(
+    "a frontmost application switch discards captured text before networking",
+    arguments: FrontmostApplicationRaceFixture.cases
+  )
+  fileprivate func frontmostApplicationRaceFailsClosed(
+    fixture: FrontmostApplicationRaceFixture
+  ) async {
+    let textEdit = AXApplicationIdentity(
+      processIdentifier: 42,
+      bundleIdentifier: "com.apple.TextEdit"
+    )
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea, .textEditTextArea],
+      selectedText: "KANAARILIND-FRONTMOST-RACE",
+      frontmostApplicationIdentity: fixture.identity,
+      applicationIdentities: [textEdit, textEdit]
+    )
+    let detector = SelectionRecordingDetector()
+    let useCase = LanguageCheckUseCase(
+      selectionReader: AccessibilitySelectedTextReader(accessibility: accessibility),
+      languageDetector: detector
+    )
+
+    await #expect(throws: AccessibilitySelectionError.focusChanged) {
+      try await useCase.check()
+    }
+
+    #expect(accessibility.frontmostApplicationIdentityLookupCount == 1)
+    #expect(accessibility.selectedTextReadCount == 1)
+    #expect(await detector.receivedTexts.isEmpty)
+    #expect(accessibility.retainedElementCount == 0)
+  }
+
   @Test("a Chrome field is reacquired from system focus after on-demand activation")
   func chromeSelectionAfterActivation() async throws {
     let accessibility = AXReaderSpy(
@@ -155,6 +215,10 @@ struct AccessibilitySelectedTextReaderTests {
       selectedRange: AXTextRange(location: 0, length: 16),
       selectedText: "BROWSER-FIXTURE",
       focusedElementErrors: [.noFocusedControl, nil, nil],
+      frontmostApplicationIdentity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.google.Chrome"
+      ),
       applicationIdentities: [
         AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "com.google.Chrome"),
         AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "com.google.Chrome"),
@@ -553,6 +617,42 @@ private struct ActivationFixture: Sendable, CustomTestStringConvertible {
   ]
 }
 
+private struct FrontmostApplicationRaceFixture: Sendable, CustomTestStringConvertible {
+  let name: String
+  let identity: AXApplicationIdentity?
+
+  var testDescription: String { name }
+
+  static let cases: [FrontmostApplicationRaceFixture] = [
+    FrontmostApplicationRaceFixture(name: "missing identity", identity: nil),
+    FrontmostApplicationRaceFixture(
+      name: "malformed bundle identity",
+      identity: AXApplicationIdentity(processIdentifier: 42, bundleIdentifier: "")
+    ),
+    FrontmostApplicationRaceFixture(
+      name: "different supported application",
+      identity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.apple.Safari"
+      )
+    ),
+    FrontmostApplicationRaceFixture(
+      name: "unsupported application",
+      identity: AXApplicationIdentity(
+        processIdentifier: 42,
+        bundleIdentifier: "com.example.Unknown"
+      )
+    ),
+    FrontmostApplicationRaceFixture(
+      name: "different process",
+      identity: AXApplicationIdentity(
+        processIdentifier: 99,
+        bundleIdentifier: "com.apple.TextEdit"
+      )
+    ),
+  ]
+}
+
 private struct BrowserFixture: Sendable, CustomTestStringConvertible {
   let name: String
   let snapshot: AXSnapshot
@@ -739,6 +839,7 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
   private(set) var acquiredElementCount = 0
   private(set) var activationCount = 0
   private(set) var applicationIdentityLookupCount = 0
+  private(set) var frontmostApplicationIdentityLookupCount = 0
   private(set) var focusedElementRequestCount = 0
   private(set) var releasedElementCount = 0
   private(set) var selectedRangeReadCount = 0
@@ -756,7 +857,7 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
     snapshotError: AccessibilitySelectionError? = nil,
     frontmostApplicationIdentity: AXApplicationIdentity? = AXApplicationIdentity(
       processIdentifier: 42,
-      bundleIdentifier: "com.google.Chrome"
+      bundleIdentifier: "com.apple.TextEdit"
     ),
     applicationIdentities: [AXApplicationIdentity?] = []
   ) {
@@ -774,7 +875,12 @@ private final class AXReaderSpy: AXReading, @unchecked Sendable {
 
   func isTrusted() -> Bool { trusted }
 
-  func frontmostApplicationIdentity() -> AXApplicationIdentity? { frontmostIdentity }
+  func frontmostApplicationIdentity() -> AXApplicationIdentity? {
+    lock.withLock {
+      frontmostApplicationIdentityLookupCount += 1
+      return frontmostIdentity
+    }
+  }
 
   func applicationIdentity(processIdentifier: pid_t) -> AXApplicationIdentity? {
     lock.withLock {

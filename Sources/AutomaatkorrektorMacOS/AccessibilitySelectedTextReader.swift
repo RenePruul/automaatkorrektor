@@ -44,6 +44,11 @@ private enum SupportedAXApplication: String, Sendable {
   }
 }
 
+private struct SupportedAXApplicationIdentity: Sendable, Equatable {
+  let application: SupportedAXApplication
+  let identity: AXApplicationIdentity
+}
+
 struct AXTextRange: Sendable, Equatable {
   let location: Int
   let length: Int
@@ -120,7 +125,7 @@ actor AccessibilitySelectedTextReader: SelectionReading {
           throw AccessibilitySelectionError.focusChanged
         }
 
-        let currentApplication: SupportedAXApplication
+        let currentApplication: SupportedAXApplicationIdentity
         do {
           currentApplication = try await supportedApplication(for: currentElement)
         } catch {
@@ -137,6 +142,10 @@ actor AccessibilitySelectedTextReader: SelectionReading {
           throw AccessibilitySelectionError.focusChanged
         }
         guard currentSnapshot == initialSnapshot else {
+          throw AccessibilitySelectionError.focusChanged
+        }
+        guard await accessibility.frontmostApplicationIdentity() == initialApplication.identity
+        else {
           throw AccessibilitySelectionError.focusChanged
         }
 
@@ -176,7 +185,7 @@ actor AccessibilitySelectedTextReader: SelectionReading {
 
   private func supportedApplication(
     for element: AXElementID
-  ) async throws -> SupportedAXApplication {
+  ) async throws -> SupportedAXApplicationIdentity {
     guard
       let identity = await accessibility.applicationIdentity(
         processIdentifier: element.processIdentifier
@@ -188,7 +197,10 @@ actor AccessibilitySelectedTextReader: SelectionReading {
     else {
       throw AccessibilitySelectionError.unsupportedApplication
     }
-    return application
+    return SupportedAXApplicationIdentity(
+      application: application,
+      identity: identity
+    )
   }
 
   private static func requireEligible(_ snapshot: AXSnapshot) throws {
