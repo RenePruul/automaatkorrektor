@@ -238,5 +238,6 @@ run_signal_cleanup_case() {
 
 run_signal_cleanup_case TERM 143
 run_signal_cleanup_case INT 130
+run_signal_cleanup_case HUP 129
 
 printf '%s\n' 'release gate signal cleanup contract tests passed'

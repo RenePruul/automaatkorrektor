@@ -153,17 +153,30 @@ run_check() {
   set +m
 
   if wait "$command_pid"; then
+    command_wait_status=0
+  else
+    command_wait_status=$?
+  fi
+  active_command_group=""
+  if [ "$command_wait_status" -eq 0 ]; then
     command_succeeded=true
   else
     command_succeeded=false
   fi
   if [ -f "$timeout_marker" ]; then
-    wait "$watchdog_pid" 2>/dev/null || true
+    if wait "$watchdog_pid" 2>/dev/null; then
+      watchdog_wait_status=0
+    else
+      watchdog_wait_status=$?
+    fi
   else
     terminate_process_group "$watchdog_pid" TERM
-    wait "$watchdog_pid" 2>/dev/null || true
+    if wait "$watchdog_pid" 2>/dev/null; then
+      watchdog_wait_status=0
+    else
+      watchdog_wait_status=$?
+    fi
   fi
-  active_command_group=""
   active_watchdog_group=""
 
   if [ -f "$timeout_marker" ]; then
