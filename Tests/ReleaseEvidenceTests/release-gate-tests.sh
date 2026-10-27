@@ -11,7 +11,7 @@ mkdir -p "$fake_bin"
 cat > "$fake_bin/swift" <<'EOF'
 #!/bin/sh
 if [ "${RELEASE_GATE_TEST_HANG_FORMAT:-0}" = 1 ] && [ "${1:-}" = format ]; then
-  sleep 30 &
+  (trap '' TERM; sleep 30) &
   child_pid=$!
   printf '%s\n' "$child_pid" > "${RELEASE_GATE_TEST_CHILD_PID_FILE:?}"
   wait "$child_pid"
@@ -162,3 +162,82 @@ if kill -0 "$hanging_child_pid" 2>/dev/null; then
 fi
 
 printf '%s\n' 'release gate timeout contract tests passed'
+
+assert_process_stopped() {
+  stopped_process_id=$1
+  stop_attempt=0
+  while kill -0 "$stopped_process_id" 2>/dev/null && [ "$stop_attempt" -lt 20 ]; do
+    sleep 0.05
+    stop_attempt=$((stop_attempt + 1))
+  done
+  if kill -0 "$stopped_process_id" 2>/dev/null; then
+    printf 'process %s survived release-gate signal cleanup\n' \
+      "$stopped_process_id" >&2
+    exit 1
+  fi
+}
+
+collect_descendant_pids() {
+  descendant_parent_pid=$1
+  for descendant_pid in $(/usr/bin/pgrep -P "$descendant_parent_pid" 2>/dev/null || true); do
+    printf '%s ' "$descendant_pid"
+    collect_descendant_pids "$descendant_pid"
+  done
+}
+
+run_signal_cleanup_case() {
+  signal_name=$1
+  expected_exit_code=$2
+  case_directory="$temporary_directory/signal-$signal_name"
+  signal_tmp="$case_directory/tmp"
+  signal_output="$case_directory/output.log"
+  signal_report="$case_directory/report.md"
+  signal_child_pid_file="$case_directory/hanging-child.pid"
+  mkdir -p "$signal_tmp"
+
+  set -m
+  PATH="$fake_bin:$PATH" \
+    TMPDIR="$signal_tmp" \
+    RELEASE_GATE_TEST_HANG_FORMAT=1 \
+    RELEASE_GATE_TEST_CHILD_PID_FILE="$signal_child_pid_file" \
+    RELEASE_GATE_TIMEOUT_SECONDS=30 \
+    RELEASE_GATE_KILL_GRACE_SECONDS=0 \
+    "$repo_root/scripts/release-gate.sh" --report "$signal_report" \
+    >"$signal_output" 2>&1 &
+  gate_pid=$!
+  set +m
+
+  start_attempt=0
+  while [ ! -s "$signal_child_pid_file" ] && [ "$start_attempt" -lt 40 ]; do
+    sleep 0.05
+    start_attempt=$((start_attempt + 1))
+  done
+  test -s "$signal_child_pid_file"
+
+  tracked_process_ids="$gate_pid $(cat "$signal_child_pid_file")"
+  tracked_process_ids="$tracked_process_ids $(collect_descendant_pids "$gate_pid")"
+
+  kill -"$signal_name" "$gate_pid"
+  set +e
+  wait "$gate_pid"
+  signal_exit_code=$?
+  set -e
+
+  test "$signal_exit_code" -eq "$expected_exit_code"
+  for tracked_process_id in $tracked_process_ids; do
+    assert_process_stopped "$tracked_process_id"
+  done
+  test ! -e "$signal_report"
+  if grep -Fq '==> Git whitespace' "$signal_output"; then
+    printf 'release gate continued after %s\n' "$signal_name" >&2
+    exit 1
+  fi
+  set -- "$signal_tmp"/automaatkorrektor-release-gate.*
+  test ! -e "$1"
+}
+
+run_signal_cleanup_case TERM 143
+run_signal_cleanup_case INT 130
+run_signal_cleanup_case HUP 129
+
+printf '%s\n' 'release gate signal cleanup contract tests passed'
