@@ -10,6 +10,12 @@ mkdir -p "$fake_bin"
 
 cat > "$fake_bin/swift" <<'EOF'
 #!/bin/sh
+if [ "${RELEASE_GATE_TEST_HANG_FORMAT:-0}" = 1 ] && [ "${1:-}" = format ]; then
+  sleep 30 &
+  child_pid=$!
+  printf '%s\n' "$child_pid" > "${RELEASE_GATE_TEST_CHILD_PID_FILE:?}"
+  wait "$child_pid"
+fi
 case "$1" in
   test) printf '%s\n' 'Test run with 68 tests passed.' ;;
   format) exit 0 ;;
@@ -120,3 +126,39 @@ grep -Fq '**Release decision:** READY' "$temporary_directory/ready-report.md"
 test "$(grep -Ec '^\| PASS \|' "$temporary_directory/ready-report.md")" -eq 29
 
 printf '%s\n' 'manual evidence validation tests passed'
+
+timeout_log="$temporary_directory/timeout-commands.log"
+timeout_report="$temporary_directory/timeout-report.md"
+child_pid_file="$temporary_directory/hanging-child.pid"
+started_at=$(date +%s)
+set +e
+PATH="$fake_bin:$PATH" \
+  RELEASE_GATE_TEST_HANG_FORMAT=1 \
+  RELEASE_GATE_TEST_CHILD_PID_FILE="$child_pid_file" \
+  RELEASE_GATE_TIMEOUT_SECONDS=1 \
+  RELEASE_GATE_KILL_GRACE_SECONDS=0 \
+  RELEASE_GATE_COMMAND_LOG_PATH="$timeout_log" \
+  "$repo_root/scripts/release-gate.sh" --report "$timeout_report" \
+  >/dev/null 2>&1
+timeout_exit_code=$?
+set -e
+elapsed_seconds=$(($(date +%s) - started_at))
+
+test "$timeout_exit_code" -eq 2
+test "$elapsed_seconds" -lt 5
+grep -Fq 'TIMEOUT: strict Swift format exceeded 1s; terminating process tree.' "$timeout_log"
+grep -Fq 'FAIL: strict Swift format (timed out after 1s)' "$timeout_log"
+test -s "$child_pid_file"
+hanging_child_pid=$(cat "$child_pid_file")
+cleanup_attempt=0
+while kill -0 "$hanging_child_pid" 2>/dev/null && [ "$cleanup_attempt" -lt 20 ]; do
+  sleep 0.05
+  cleanup_attempt=$((cleanup_attempt + 1))
+done
+if kill -0 "$hanging_child_pid" 2>/dev/null; then
+  printf 'hanging child process %s survived the release-gate timeout\n' \
+    "$hanging_child_pid" >&2
+  exit 1
+fi
+
+printf '%s\n' 'release gate timeout contract tests passed'

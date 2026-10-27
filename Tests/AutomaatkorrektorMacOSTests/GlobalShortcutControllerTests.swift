@@ -118,7 +118,7 @@ struct GlobalShortcutControllerTests {
     )
 
     let task = Task { await lifecycle.handleShortcut() }
-    await Task.yield()
+    await reader.waitUntilReadStarted()
 
     #expect(lifecycle.isPopoverPresented)
     #expect(model.state == .checking)
@@ -256,9 +256,22 @@ private struct ShortcutDetector: LanguageDetecting {
 
 private actor ControllableShortcutSelectionReader: SelectionReading {
   private var continuation: CheckedContinuation<SelectedText, Never>?
+  private var didStartReading = false
+  private var startWaiters: [CheckedContinuation<Void, Never>] = []
 
   func readSelectedText() async throws -> SelectedText {
-    await withCheckedContinuation { continuation = $0 }
+    didStartReading = true
+    let waiters = startWaiters
+    startWaiters.removeAll()
+    for waiter in waiters {
+      waiter.resume()
+    }
+    return await withCheckedContinuation { continuation = $0 }
+  }
+
+  func waitUntilReadStarted() async {
+    guard !didStartReading else { return }
+    await withCheckedContinuation { startWaiters.append($0) }
   }
 
   func resume(with text: SelectedText) {

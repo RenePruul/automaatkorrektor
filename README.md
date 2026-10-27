@@ -22,6 +22,12 @@ and create a metadata-only report with:
 scripts/release-gate.sh
 ```
 
+The gate bounds format and Git checks at 2 minutes, fixture tests at 5 minutes,
+Swift tests at 10 minutes, and each Xcode build at 15 minutes. A timeout fails
+the automated gate and terminates the command's child processes. Maintainers
+may set `RELEASE_GATE_TIMEOUT_SECONDS` to a positive number only when testing
+the watchdog itself; release runs use the documented per-check limits.
+
 The command exits with status `2` while any required real-app or OS check is
 pending. Follow [the manual checklist](release/MANUAL-CHECKLIST.md), keep the
 filled evidence TSV in `.release-evidence/`, and pass it back with
