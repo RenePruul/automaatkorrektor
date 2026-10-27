@@ -32,12 +32,6 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/automaatkorrektor-release-gate.XXXXXX")
-trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
-command_log=${RELEASE_GATE_COMMAND_LOG_PATH:-"$temporary_directory/commands.log"}
-mkdir -p "$(dirname "$command_log")"
-mkdir -p "$(dirname "$report_path")"
-
 # Each external check is bounded so a wedged compiler, package manager, or test
 # process cannot hold the release gate forever. The override is intended for
 # the gate's contract tests; normal runs use the per-check limits below.
@@ -54,11 +48,71 @@ case "$kill_grace_seconds" in ''|*[!0-9]*)
   ;;
 esac
 
+temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/automaatkorrektor-release-gate.XXXXXX")
+active_command_group=""
+active_watchdog_group=""
+
 terminate_process_group() {
   process_group_id=$1
   signal=$2
   /bin/kill -"$signal" -- "-$process_group_id" 2>/dev/null || true
 }
+
+process_group_is_running() {
+  /bin/kill -0 -- "-$1" 2>/dev/null
+}
+
+terminate_active_process_groups() {
+  for process_group_id in "$active_command_group" "$active_watchdog_group"; do
+    [ -z "$process_group_id" ] || terminate_process_group "$process_group_id" TERM
+  done
+
+  remaining_checks=$((kill_grace_seconds * 10))
+  while [ "$remaining_checks" -gt 0 ]; do
+    groups_are_running=false
+    for process_group_id in "$active_command_group" "$active_watchdog_group"; do
+      if [ -n "$process_group_id" ] && process_group_is_running "$process_group_id"; then
+        groups_are_running=true
+      fi
+    done
+    [ "$groups_are_running" = true ] || break
+    sleep 0.1
+    remaining_checks=$((remaining_checks - 1))
+  done
+
+  for process_group_id in "$active_command_group" "$active_watchdog_group"; do
+    if [ -n "$process_group_id" ] && process_group_is_running "$process_group_id"; then
+      terminate_process_group "$process_group_id" KILL
+    fi
+  done
+  [ -z "$active_command_group" ] || wait "$active_command_group" 2>/dev/null || true
+  [ -z "$active_watchdog_group" ] || wait "$active_watchdog_group" 2>/dev/null || true
+  active_command_group=""
+  active_watchdog_group=""
+}
+
+cleanup_on_exit() {
+  trap - EXIT
+  rm -rf "$temporary_directory"
+}
+
+cleanup_on_signal() {
+  signal_exit_code=$1
+  trap - EXIT
+  trap '' HUP INT TERM
+  terminate_active_process_groups
+  rm -rf "$temporary_directory"
+  exit "$signal_exit_code"
+}
+
+trap cleanup_on_exit EXIT
+trap 'cleanup_on_signal 129' HUP
+trap 'cleanup_on_signal 130' INT
+trap 'cleanup_on_signal 143' TERM
+
+command_log=${RELEASE_GATE_COMMAND_LOG_PATH:-"$temporary_directory/commands.log"}
+mkdir -p "$(dirname "$command_log")"
+mkdir -p "$(dirname "$report_path")"
 
 export CLANG_MODULE_CACHE_PATH="$temporary_directory/clang-module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$temporary_directory/swiftpm-module-cache"
@@ -80,6 +134,7 @@ run_check() {
   set -m
   "$@" >>"$command_log" 2>&1 &
   command_pid=$!
+  active_command_group=$command_pid
   set +m
   set -m
   (
@@ -94,6 +149,7 @@ run_check() {
     fi
   ) &
   watchdog_pid=$!
+  active_watchdog_group=$watchdog_pid
   set +m
 
   if wait "$command_pid"; then
@@ -101,8 +157,14 @@ run_check() {
   else
     command_succeeded=false
   fi
-  terminate_process_group "$watchdog_pid" TERM
-  wait "$watchdog_pid" 2>/dev/null || true
+  if [ -f "$timeout_marker" ]; then
+    wait "$watchdog_pid" 2>/dev/null || true
+  else
+    terminate_process_group "$watchdog_pid" TERM
+    wait "$watchdog_pid" 2>/dev/null || true
+  fi
+  active_command_group=""
+  active_watchdog_group=""
 
   if [ -f "$timeout_marker" ]; then
     printf 'FAIL: %s (timed out after %ss)\n' "$label" "$timeout_seconds" >>"$command_log"
