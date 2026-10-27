@@ -5,6 +5,7 @@ struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
   @ObservedObject var model: LanguageCheckViewModel
   @ObservedObject var shortcut: Shortcut
   let showSettings: () -> Void
+  let checkSelectedText: () -> Void
   let quit: @MainActor () async -> Void
 
   var body: some View {
@@ -35,7 +36,7 @@ struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
         trailing: shortcut.shortcut?.displayName ?? "—",
         symbol: "play.fill"
       ) {
-        Task { await model.check() }
+        checkSelectedText()
       }
       .disabled(model.state == .checking)
 
