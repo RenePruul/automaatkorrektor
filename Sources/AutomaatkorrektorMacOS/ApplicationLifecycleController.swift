@@ -46,6 +46,11 @@ final class ApplicationLifecycleController: ObservableObject {
     await model.check()
   }
 
+  func handleMenuCheck() async {
+    isPopoverPresented = true
+    await model.check()
+  }
+
   func dismissPopover() async {
     isPopoverPresented = false
     await model.dismiss()
