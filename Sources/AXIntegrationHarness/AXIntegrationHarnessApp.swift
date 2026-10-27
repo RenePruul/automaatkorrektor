@@ -10,12 +10,7 @@ private enum HarnessExpectation: String {
 @main
 @MainActor
 final class AXIntegrationHarnessApp: NSObject, NSApplicationDelegate {
-  private static let hostBundleIdentifier =
-    "ee.elle.Automaatkorrektor.NativeTextControlHost"
-
-  private let reader = AccessibilitySelectedTextReader(
-    testHostBundleIdentifier: hostBundleIdentifier
-  )
+  private let reader = AccessibilitySelectedTextReader.nativeTextControlTestHarness()
   private var window: NSWindow?
   private var resultLabel: NSTextField?
   private var activeTask: Task<Void, Never>?

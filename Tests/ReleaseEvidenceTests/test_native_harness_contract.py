@@ -19,23 +19,28 @@ class NativeHarnessContractTests(unittest.TestCase):
             REPO
             / "Sources/AutomaatkorrektorMacOS/AccessibilitySelectedTextReader.swift"
         ).read_text()
+        harness = (
+            REPO / "Sources/AXIntegrationHarness/AXIntegrationHarnessApp.swift"
+        ).read_text()
         project = (
             REPO / "apps/macos/Automaatkorrektor.xcodeproj/project.pbxproj"
         ).read_text()
 
         self.assertIn("#if AX_INTEGRATION_HARNESS", reader)
-        self.assertIn("testHostBundleIdentifier: String", reader)
+        self.assertIn("static func nativeTextControlTestHarness(", reader)
+        self.assertIn("applicationPolicy: .nativeTextControlHost", reader)
+        self.assertNotIn("testHostBundleIdentifier", reader)
+        self.assertNotIn("precondition(", reader)
+        self.assertEqual(reader.count(HOST_BUNDLE), 1)
+        self.assertNotIn(HOST_BUNDLE, harness)
+        self.assertIn(
+            "AccessibilitySelectedTextReader.nativeTextControlTestHarness()",
+            harness,
+        )
         self.assertIn(
             "allowedApplications: [.textEdit, .safari, .chrome]", reader
         )
-        self.assertIn(
-            "return AXApplicationPolicy(allowedApplications: [.nativeTextControlHost])",
-            reader,
-        )
-        self.assertIn(
-            "bundleIdentifier == SupportedAXApplication.nativeTextControlHost.rawValue",
-            reader,
-        )
+        self.assertIn("static let nativeTextControlHost = AXApplicationPolicy(", reader)
         self.assertIn(HOST_BUNDLE, project)
         self.assertIn(HARNESS_BUNDLE, project)
         self.assertGreaterEqual(
