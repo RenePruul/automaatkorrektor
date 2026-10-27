@@ -11,6 +11,14 @@ extension KeyboardShortcuts.Name {
 }
 
 @MainActor
+enum KeyboardShortcutConflictPolicy {
+  static let required = KeyboardShortcuts.ConflictPolicy(
+    menuItem: .block,
+    systemShortcut: .block
+  )
+}
+
+@MainActor
 final class KeyboardShortcutsBackend: GlobalShortcutBackend {
   private let name: KeyboardShortcuts.Name
 
@@ -90,6 +98,7 @@ struct GlobalShortcutRecorder<Controller: GlobalShortcutControlling>: View {
         ? .disallow(reason: "See kiirklahv on Automaatkorrektoris juba kasutusel.")
         : .allow
     }
+    .keyboardShortcutsConflictPolicy(KeyboardShortcutConflictPolicy.required)
   }
 }
 
