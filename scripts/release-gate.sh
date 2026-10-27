@@ -75,6 +75,14 @@ run_check 'Xcode macOS build' xcodebuild \
   -derivedDataPath "$temporary_directory/DerivedData" \
   CODE_SIGNING_ALLOWED=NO \
   build
+run_check 'Xcode native AX evidence apps build' xcodebuild \
+  -project apps/macos/Automaatkorrektor.xcodeproj \
+  -scheme NativeAXEvidence \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  -derivedDataPath "$temporary_directory/NativeAXDerivedData" \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 
 commit=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || printf '%s' unknown)
 os_version=$(sw_vers 2>/dev/null | paste -sd '; ' - || printf '%s' unavailable)
@@ -170,7 +178,7 @@ add_automatic api-url-policy 'Base URL security' 'APIBaseURLSettingsTests: loopb
 add_automatic api-ephemeral 'Ephemeral log-free transport' 'LanguageAPIAdapterTests: no cache, cookies, credentials, redirects, or body logging.'
 
 # Six adapter integration checks. Two require operator-controlled macOS state.
-add_pending integration-native-host 'Deterministic native text-control host' 'Run the native-host checklist with Accessibility permission.'
+add_pending integration-native-host 'Test-only native AX harness' 'Run the bundled host and isolated AX harness checklist; production must reject the host.'
 add_automatic integration-browser-fixture 'Offline Safari and Chrome fixture' 'Synthetic offline fixture matrix is packaged and tested.'
 add_automatic integration-chrome-activation 'Chrome metadata-only activation' 'Adapter test reacquires focus after metadata-only activation.'
 add_automatic integration-focus-race 'Focus-race rejection' 'Adapter tests reject identity and metadata changes before networking.'
@@ -227,6 +235,7 @@ fi
   printf '%s\n' "python3 -m unittest discover -s Tests/ReleaseEvidenceTests -p 'test_*.py'"
   printf '%s\n' 'swift test'
   printf '%s\n' "xcodebuild -project apps/macos/Automaatkorrektor.xcodeproj -scheme Automaatkorrektor -configuration Debug -destination platform=macOS CODE_SIGNING_ALLOWED=NO build"
+  printf '%s\n' "xcodebuild -project apps/macos/Automaatkorrektor.xcodeproj -scheme NativeAXEvidence -configuration Debug -destination platform=macOS CODE_SIGNING_ALLOWED=NO build"
   printf '```\n\n'
   printf '## Required evidence\n\n'
   printf '| Status | ID | Check | Evidence |\n'

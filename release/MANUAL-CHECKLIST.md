@@ -59,15 +59,41 @@ curl --fail --silent http://127.0.0.1:8000/_test/status
 The response contains `request_count` and allowlisted metadata, never selected
 text. Stop the fixture with Control-C. Do not redirect fixture output to a file.
 
-## Native host and TextEdit
+## Test-only native Accessibility harness
 
-1. Build the release candidate and `NativeTextControlHost` with the full Xcode
-   toolchain.
-2. Grant Automaatkorrektor Accessibility access in System Settings.
-3. In the native host, verify editable `NSTextField`, `NSSearchField`, and
-   `NSTextView` selections each produce the stub verdict.
-4. Verify read-only, disabled, and secure fields produce no stub request.
-5. In TextEdit, verify an explicit synthetic selection produces each of `jah`,
+The production Automaatkorrektor allowlist remains exactly TextEdit, Safari,
+and Chrome. It must reject `NativeTextControlHost`; the host is admitted only
+by the separately compiled test harness policy. Neither test app performs a
+network request or displays, logs, or stores selected text.
+
+Build and open both properly bundled test apps with the exact operator command:
+
+```sh
+scripts/run-native-ax-harness.sh
+```
+
+1. Grant **AX Integration Harness** Accessibility access in System Settings.
+   Do not use an environment variable or modify production Automaatkorrektor.
+2. For each harness row, click **Arm**, then within five seconds click the
+   matching **Prepare** button in **Native Text Control Host**. The host focuses
+   the control and selects only its synthetic fixture text.
+3. Require metadata-only `PASS` for editable `NSTextField`, `NSSearchField`,
+   and `NSTextView`.
+4. Require metadata-only `PASS` for rejection of read-only, disabled, and
+   secure fields. No language API or stub is involved.
+5. Launch the production Automaatkorrektor separately, select synthetic host
+   text, and confirm the production client rejects the host before any stub
+   request.
+
+The `integration-native-host` evidence remains `PENDING` until all seven
+outcomes above have been run on the release candidate. Record only app versions,
+the six harness PASS states, production rejection, OS version, and date—never
+fixture text.
+
+## TextEdit
+
+1. Grant production Automaatkorrektor Accessibility access in System Settings.
+2. In TextEdit, verify an explicit synthetic selection produces each of `jah`,
    `ei`, and `ebakindel`; an empty selection and a focus change produce no
    request.
 
