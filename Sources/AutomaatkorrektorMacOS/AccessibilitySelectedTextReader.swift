@@ -56,12 +56,9 @@ private struct AXApplicationPolicy: Sendable {
   )
 
   #if AX_INTEGRATION_HARNESS
-    static func testHarness(bundleIdentifier: String) -> AXApplicationPolicy? {
-      guard bundleIdentifier == SupportedAXApplication.nativeTextControlHost.rawValue else {
-        return nil
-      }
-      return AXApplicationPolicy(allowedApplications: [.nativeTextControlHost])
-    }
+    static let nativeTextControlHost = AXApplicationPolicy(
+      allowedApplications: [.nativeTextControlHost]
+    )
   #endif
 
   func resolve(
@@ -132,18 +129,21 @@ actor AccessibilitySelectedTextReader: SelectionReading {
   }
 
   #if AX_INTEGRATION_HARNESS
-    init(
-      testHostBundleIdentifier: String,
+    static func nativeTextControlTestHarness(
       accessibility: any AXReading = SystemAXReader()
-    ) {
-      precondition(
-        AXApplicationPolicy.testHarness(bundleIdentifier: testHostBundleIdentifier) != nil,
-        "The AX integration harness accepts only its exact bundled native host."
+    ) -> AccessibilitySelectedTextReader {
+      AccessibilitySelectedTextReader(
+        accessibility: accessibility,
+        applicationPolicy: .nativeTextControlHost
       )
+    }
+
+    private init(
+      accessibility: any AXReading,
+      applicationPolicy: AXApplicationPolicy
+    ) {
       self.accessibility = accessibility
-      applicationPolicy = AXApplicationPolicy.testHarness(
-        bundleIdentifier: testHostBundleIdentifier
-      )!
+      self.applicationPolicy = applicationPolicy
     }
   #endif
 
