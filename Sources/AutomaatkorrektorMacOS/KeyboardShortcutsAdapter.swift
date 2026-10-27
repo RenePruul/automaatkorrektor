@@ -98,7 +98,14 @@ struct GlobalShortcutRecorder<Controller: GlobalShortcutControlling>: View {
         ? .disallow(reason: "See kiirklahv on Automaatkorrektoris juba kasutusel.")
         : .allow
     }
-    .keyboardShortcutsConflictPolicy(KeyboardShortcutConflictPolicy.required)
+    .requiredKeyboardShortcutConflictPolicy()
+  }
+}
+
+extension View {
+  @MainActor
+  fileprivate func requiredKeyboardShortcutConflictPolicy() -> some View {
+    keyboardShortcutsConflictPolicy(KeyboardShortcutConflictPolicy.required)
   }
 }
 

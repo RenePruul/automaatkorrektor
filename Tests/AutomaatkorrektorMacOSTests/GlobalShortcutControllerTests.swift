@@ -12,7 +12,7 @@ struct GlobalShortcutControllerTests {
     let backend = ShortcutBackendSpy()
     let reader = CountingShortcutSelectionReader()
     let detector = CountingShortcutDetector()
-    let completion = AsyncSignal()
+    let completion = OneShotSignal()
     let model = LanguageCheckViewModel(
       useCase: LanguageCheckUseCase(
         selectionReader: reader,
@@ -129,7 +129,7 @@ struct GlobalShortcutControllerTests {
       terminator: ShortcutTerminator()
     )
     let controller = GlobalShortcutController(backend: backend)
-    let completion = AsyncSignal()
+    let completion = OneShotSignal()
     controller.start {
       Task {
         await lifecycle.handleShortcut()
@@ -320,22 +320,17 @@ private actor CountingShortcutDetector: LanguageDetecting {
 
 private actor ControllableShortcutSelectionReader: SelectionReading {
   private var continuation: CheckedContinuation<SelectedText, Never>?
-  private var didStartReading = false
-  private var startWaiters: [CheckedContinuation<Void, Never>] = []
+  private let readStarted = OneShotSignal()
 
   func readSelectedText() async throws -> SelectedText {
-    didStartReading = true
-    let waiters = startWaiters
-    startWaiters.removeAll()
-    for waiter in waiters {
-      waiter.resume()
+    await withCheckedContinuation { continuation in
+      self.continuation = continuation
+      Task { await readStarted.signal() }
     }
-    return await withCheckedContinuation { continuation = $0 }
   }
 
   func waitUntilReadStarted() async {
-    guard !didStartReading else { return }
-    await withCheckedContinuation { startWaiters.append($0) }
+    await readStarted.wait()
   }
 
   func resume(with text: SelectedText) {
@@ -345,27 +340,31 @@ private actor ControllableShortcutSelectionReader: SelectionReading {
 }
 
 private actor CancellableShortcutSelectionReader: SelectionReading {
-  private var didStartReading = false
-  private var startWaiters: [CheckedContinuation<Void, Never>] = []
+  private var continuation: CheckedContinuation<SelectedText, any Error>?
+  private let readStarted = OneShotSignal()
 
   func readSelectedText() async throws -> SelectedText {
-    didStartReading = true
-    let waiters = startWaiters
-    startWaiters.removeAll()
-    for waiter in waiters {
-      waiter.resume()
+    try await withTaskCancellationHandler {
+      try await withCheckedThrowingContinuation { continuation in
+        self.continuation = continuation
+        Task { await readStarted.signal() }
+      }
+    } onCancel: {
+      Task { await self.cancelRead() }
     }
-    try await Task.sleep(for: .seconds(60))
-    return SelectedText("Tere")
   }
 
   func waitUntilReadStarted() async {
-    guard !didStartReading else { return }
-    await withCheckedContinuation { startWaiters.append($0) }
+    await readStarted.wait()
+  }
+
+  private func cancelRead() {
+    continuation?.resume(throwing: CancellationError())
+    continuation = nil
   }
 }
 
-private actor AsyncSignal {
+private actor OneShotSignal {
   private var isSignaled = false
   private var waiters: [CheckedContinuation<Void, Never>] = []
 
