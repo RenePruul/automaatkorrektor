@@ -34,40 +34,104 @@ done
 
 temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/automaatkorrektor-release-gate.XXXXXX")
 trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
-command_log="$temporary_directory/commands.log"
+command_log=${RELEASE_GATE_COMMAND_LOG_PATH:-"$temporary_directory/commands.log"}
+mkdir -p "$(dirname "$command_log")"
 mkdir -p "$(dirname "$report_path")"
+
+# Each external check is bounded so a wedged compiler, package manager, or test
+# process cannot hold the release gate forever. The override is intended for
+# the gate's contract tests; normal runs use the per-check limits below.
+timeout_override=${RELEASE_GATE_TIMEOUT_SECONDS:-}
+kill_grace_seconds=${RELEASE_GATE_KILL_GRACE_SECONDS:-2}
+case "$timeout_override" in ''|*[!0-9]*)
+  [ -z "$timeout_override" ] || { printf '%s\n' 'RELEASE_GATE_TIMEOUT_SECONDS must be a positive integer' >&2; exit 64; }
+  ;;
+0) printf '%s\n' 'RELEASE_GATE_TIMEOUT_SECONDS must be a positive integer' >&2; exit 64 ;;
+esac
+case "$kill_grace_seconds" in ''|*[!0-9]*)
+  printf '%s\n' 'RELEASE_GATE_KILL_GRACE_SECONDS must be a non-negative integer' >&2
+  exit 64
+  ;;
+esac
+
+terminate_process_group() {
+  process_group_id=$1
+  signal=$2
+  /bin/kill -"$signal" -- "-$process_group_id" 2>/dev/null || true
+}
 
 export CLANG_MODULE_CACHE_PATH="$temporary_directory/clang-module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$temporary_directory/swiftpm-module-cache"
 
 overall_automation=PASS
+last_check_status=PASS
 run_check() {
   label=$1
+  default_timeout=$2
+  timeout_seconds=${timeout_override:-$default_timeout}
   shift
+  shift
+  timeout_marker="$temporary_directory/timeout-marker-$$"
+  rm -f "$timeout_marker"
   printf '==> %s\n' "$label"
-  if "$@" >>"$command_log" 2>&1; then
+  # Job control gives the command and all descendants an isolated process
+  # group, allowing the watchdog to terminate the entire tree portably on
+  # macOS without relying on GNU timeout(1).
+  set -m
+  "$@" >>"$command_log" 2>&1 &
+  command_pid=$!
+  set +m
+  set -m
+  (
+    sleep "$timeout_seconds"
+    if kill -0 "$command_pid" 2>/dev/null; then
+      printf 'TIMEOUT: %s exceeded %ss; terminating process tree.\n' \
+        "$label" "$timeout_seconds" >>"$command_log"
+      : > "$timeout_marker"
+      terminate_process_group "$command_pid" TERM
+      sleep "$kill_grace_seconds"
+      terminate_process_group "$command_pid" KILL
+    fi
+  ) &
+  watchdog_pid=$!
+  set +m
+
+  if wait "$command_pid"; then
+    command_succeeded=true
+  else
+    command_succeeded=false
+  fi
+  terminate_process_group "$watchdog_pid" TERM
+  wait "$watchdog_pid" 2>/dev/null || true
+
+  if [ -f "$timeout_marker" ]; then
+    printf 'FAIL: %s (timed out after %ss)\n' "$label" "$timeout_seconds" >>"$command_log"
+    overall_automation=FAIL
+    last_check_status=TIMEOUT
+  elif [ "$command_succeeded" = true ]; then
     printf 'PASS: %s\n' "$label" >>"$command_log"
+    last_check_status=PASS
   else
     printf 'FAIL: %s\n' "$label" >>"$command_log"
     overall_automation=FAIL
+    last_check_status=FAIL
   fi
 }
 
 cd "$repo_root" || exit 1
-run_check 'strict Swift format' swift format lint --recursive --strict Sources Tests Package.swift
-run_check 'Git whitespace' git diff --check
-if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
-  printf '%s\n' 'FAIL: clean Git tree' >>"$command_log"
-  overall_automation=FAIL
-  tree_state=dirty
-else
-  printf '%s\n' 'PASS: clean Git tree' >>"$command_log"
+run_check 'strict Swift format' 120 swift format lint --recursive --strict Sources Tests Package.swift
+run_check 'Git whitespace' 120 git diff --check
+run_check 'clean Git tree' 120 /bin/sh -c \
+  'test -z "$(git status --porcelain --untracked-files=normal)"'
+if [ "$last_check_status" = PASS ]; then
   tree_state=clean
+else
+  tree_state=dirty
 fi
-run_check 'offline language API fixture tests' \
+run_check 'offline language API fixture tests' 300 \
   python3 -m unittest discover -s Tests/ReleaseEvidenceTests -p 'test_*.py'
-run_check 'Swift package tests' swift test
-run_check 'Xcode macOS build' xcodebuild \
+run_check 'Swift package tests' 600 swift test
+run_check 'Xcode macOS build' 900 xcodebuild \
   -project apps/macos/Automaatkorrektor.xcodeproj \
   -scheme Automaatkorrektor \
   -configuration Debug \
@@ -75,7 +139,7 @@ run_check 'Xcode macOS build' xcodebuild \
   -derivedDataPath "$temporary_directory/DerivedData" \
   CODE_SIGNING_ALLOWED=NO \
   build
-run_check 'Xcode native AX evidence apps build' xcodebuild \
+run_check 'Xcode native AX evidence apps build' 900 xcodebuild \
   -project apps/macos/Automaatkorrektor.xcodeproj \
   -scheme NativeAXEvidence \
   -configuration Debug \
