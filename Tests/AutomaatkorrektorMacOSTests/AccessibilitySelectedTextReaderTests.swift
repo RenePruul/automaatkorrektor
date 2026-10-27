@@ -59,6 +59,27 @@ struct AccessibilitySelectedTextReaderTests {
     #expect(accessibility.selectedTextReadCount == 1)
   }
 
+  @Test("production rejects the native integration host before reading content")
+  func productionRejectsNativeIntegrationHost() async {
+    let accessibility = AXReaderSpy(
+      snapshots: [.textEditTextArea],
+      applicationIdentities: [
+        AXApplicationIdentity(
+          processIdentifier: 42,
+          bundleIdentifier: "ee.elle.Automaatkorrektor.NativeTextControlHost"
+        )
+      ]
+    )
+    let reader = AccessibilitySelectedTextReader(accessibility: accessibility)
+
+    await #expect(throws: AccessibilitySelectionError.unsupportedApplication) {
+      _ = try await reader.readSelectedText()
+    }
+    #expect(accessibility.snapshotReadCount == 0)
+    #expect(accessibility.selectedRangeReadCount == 0)
+    #expect(accessibility.selectedTextReadCount == 0)
+  }
+
   @Test(
     "unsupported, missing, and malformed application identities fail before content access",
     arguments: UnsupportedApplicationFixture.cases

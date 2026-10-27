@@ -28,6 +28,12 @@ filled evidence TSV in `.release-evidence/`, and pass it back with
 `--manual-evidence`. Selected text and privacy-canary values must never be put
 in the evidence TSV or report.
 
+Native AppKit control coverage uses two separately bundled, test-only apps.
+Run `scripts/run-native-ax-harness.sh` and follow the checklist. Its harness
+uses the real Accessibility reader with an exact test-host policy, performs no
+networking, and reports metadata-only PASS/FAIL. The production app continues
+to reject that host and supports only its documented three-app allowlist.
+
 The manual matrix uses the dependency-free, loopback-only
 [`tools/language_api_stub.py`](tools/language_api_stub.py) fixture. It provides
 controlled verdict, delay, incompatible-response, server-error, request-count,

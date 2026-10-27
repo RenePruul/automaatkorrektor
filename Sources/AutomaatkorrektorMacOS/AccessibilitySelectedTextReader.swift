@@ -33,6 +33,10 @@ private enum SupportedAXApplication: String, Sendable {
   case safari = "com.apple.Safari"
   case chrome = "com.google.Chrome"
 
+  #if AX_INTEGRATION_HARNESS
+    case nativeTextControlHost = "ee.elle.Automaatkorrektor.NativeTextControlHost"
+  #endif
+
   init?(identity: AXApplicationIdentity, expectedProcessIdentifier: pid_t) {
     guard identity.processIdentifier == expectedProcessIdentifier,
       expectedProcessIdentifier > 0,
@@ -41,6 +45,39 @@ private enum SupportedAXApplication: String, Sendable {
       return nil
     }
     self = application
+  }
+}
+
+private struct AXApplicationPolicy: Sendable {
+  let allowedApplications: Set<SupportedAXApplication>
+
+  static let production = AXApplicationPolicy(
+    allowedApplications: [.textEdit, .safari, .chrome]
+  )
+
+  #if AX_INTEGRATION_HARNESS
+    static func testHarness(bundleIdentifier: String) -> AXApplicationPolicy? {
+      guard bundleIdentifier == SupportedAXApplication.nativeTextControlHost.rawValue else {
+        return nil
+      }
+      return AXApplicationPolicy(allowedApplications: [.nativeTextControlHost])
+    }
+  #endif
+
+  func resolve(
+    identity: AXApplicationIdentity,
+    expectedProcessIdentifier: pid_t
+  ) -> SupportedAXApplication? {
+    guard
+      let application = SupportedAXApplication(
+        identity: identity,
+        expectedProcessIdentifier: expectedProcessIdentifier
+      ),
+      allowedApplications.contains(application)
+    else {
+      return nil
+    }
+    return application
   }
 }
 
@@ -87,10 +124,28 @@ actor AccessibilitySelectedTextReader: SelectionReading {
   static let maximumSelectionLength = 10_000
 
   private let accessibility: any AXReading
+  private let applicationPolicy: AXApplicationPolicy
 
   init(accessibility: any AXReading = SystemAXReader()) {
     self.accessibility = accessibility
+    applicationPolicy = .production
   }
+
+  #if AX_INTEGRATION_HARNESS
+    init(
+      testHostBundleIdentifier: String,
+      accessibility: any AXReading = SystemAXReader()
+    ) {
+      precondition(
+        AXApplicationPolicy.testHarness(bundleIdentifier: testHostBundleIdentifier) != nil,
+        "The AX integration harness accepts only its exact bundled native host."
+      )
+      self.accessibility = accessibility
+      applicationPolicy = AXApplicationPolicy.testHarness(
+        bundleIdentifier: testHostBundleIdentifier
+      )!
+    }
+  #endif
 
   func readSelectedText() async throws -> SelectedText {
     try Task.checkCancellation()
@@ -172,7 +227,7 @@ actor AccessibilitySelectedTextReader: SelectionReading {
       return try await accessibility.focusedElement()
     } catch AccessibilitySelectionError.noFocusedControl {
       guard let frontmostIdentity = await accessibility.frontmostApplicationIdentity(),
-        let frontmostApplication = SupportedAXApplication(
+        let frontmostApplication = applicationPolicy.resolve(
           identity: frontmostIdentity,
           expectedProcessIdentifier: frontmostIdentity.processIdentifier
         )
@@ -194,7 +249,7 @@ actor AccessibilitySelectedTextReader: SelectionReading {
       let identity = await accessibility.applicationIdentity(
         processIdentifier: element.processIdentifier
       ),
-      let application = SupportedAXApplication(
+      let application = applicationPolicy.resolve(
         identity: identity,
         expectedProcessIdentifier: element.processIdentifier
       )

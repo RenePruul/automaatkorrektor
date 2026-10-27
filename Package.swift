@@ -8,7 +8,6 @@ let package = Package(
   products: [
     .library(name: "AutomaatkorrektorCore", targets: ["AutomaatkorrektorCore"]),
     .executable(name: "Automaatkorrektor", targets: ["AutomaatkorrektorMacOS"]),
-    .executable(name: "NativeTextControlHost", targets: ["NativeTextControlHost"]),
   ],
   dependencies: [
     .package(
@@ -25,7 +24,6 @@ let package = Package(
         .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
       ]
     ),
-    .executableTarget(name: "NativeTextControlHost"),
     .testTarget(
       name: "AutomaatkorrektorCoreTests",
       dependencies: ["AutomaatkorrektorCore"]

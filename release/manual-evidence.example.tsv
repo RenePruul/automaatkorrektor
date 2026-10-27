@@ -1,5 +1,5 @@
 # id	status	evidence note (metadata only; never selected text)
-integration-native-host	PENDING	Run the native-host checklist.
+integration-native-host	PENDING	Run the test-only bundled AX harness; confirm production rejects its host.
 integration-permission	PENDING	Grant and revoke real Accessibility permission.
 manual-textedit	PENDING	Run the TextEdit matrix.
 manual-safari	PENDING	Run the offline Safari fixture matrix.
