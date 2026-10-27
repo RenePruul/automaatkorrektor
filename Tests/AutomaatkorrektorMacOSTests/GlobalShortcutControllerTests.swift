@@ -1,4 +1,5 @@
 import AutomaatkorrektorCore
+import KeyboardShortcuts
 import Testing
 
 @testable import AutomaatkorrektorMacOS
@@ -6,19 +7,56 @@ import Testing
 @MainActor
 @Suite("Global shortcut")
 struct GlobalShortcutControllerTests {
-  @Test("startup requests a key-up registration and one release invokes once")
-  func defaultShortcutInvokesOnKeyUp() {
+  @Test("repeated held-key downs and one release produce exactly one language check")
+  func defaultShortcutInvokesOnKeyUp() async {
     let backend = ShortcutBackendSpy()
+    let reader = CountingShortcutSelectionReader()
+    let detector = CountingShortcutDetector()
+    let completion = AsyncSignal()
+    let model = LanguageCheckViewModel(
+      useCase: LanguageCheckUseCase(
+        selectionReader: reader,
+        languageDetector: detector
+      ),
+      accessibilityPermission: GrantedShortcutPermissionController()
+    )
+    let lifecycle = ApplicationLifecycleController(
+      model: model,
+      terminator: ShortcutTerminator()
+    )
     let controller = GlobalShortcutController(backend: backend)
-    var invocationCount = 0
-
-    controller.start { invocationCount += 1 }
+    controller.start {
+      Task {
+        await lifecycle.handleShortcut()
+        await completion.signal()
+      }
+    }
 
     #expect(backend.registeredShortcut == .default)
     #expect(backend.keyUpRegistrationCount == 1)
-    backend.sendKeyDown()
+    for _ in 0..<20 {
+      backend.sendKeyDown()
+    }
+    #expect(await reader.readCount == 0)
+    #expect(await detector.requestCount == 0)
+
     backend.sendKeyUp()
-    #expect(invocationCount == 1)
+    await completion.wait()
+
+    #expect(await reader.readCount == 1)
+    #expect(await detector.requestCount == 1)
+    #expect(model.state == .verdict(.estonian))
+  }
+
+  @Test("recorder blocks known system and application menu conflicts")
+  func strictRecorderConflictPolicy() {
+    #expect(
+      KeyboardShortcutConflictPolicy.required
+        == KeyboardShortcuts.ConflictPolicy(
+          menuItem: .block,
+          systemShortcut: .block
+        )
+    )
   }
 
   @Test("replacement, clearing, and shutdown leave only the intended registration")
@@ -91,12 +129,16 @@ struct GlobalShortcutControllerTests {
       terminator: ShortcutTerminator()
     )
     let controller = GlobalShortcutController(backend: backend)
+    let completion = AsyncSignal()
     controller.start {
-      Task { await lifecycle.handleShortcut() }
+      Task {
+        await lifecycle.handleShortcut()
+        await completion.signal()
+      }
     }
 
     backend.sendKeyUp()
-    await Task.yield()
+    await completion.wait()
 
     #expect(permission.promptCount == 0)
     #expect(lifecycle.isPopoverPresented)
@@ -132,9 +174,10 @@ struct GlobalShortcutControllerTests {
 
   @Test("dismissing shortcut feedback cancels the active check")
   func cancellation() async {
+    let reader = CancellableShortcutSelectionReader()
     let model = LanguageCheckViewModel(
       useCase: LanguageCheckUseCase(
-        selectionReader: CancellableShortcutSelectionReader(),
+        selectionReader: reader,
         languageDetector: ShortcutDetector()
       ),
       accessibilityPermission: GrantedShortcutPermissionController()
@@ -144,7 +187,7 @@ struct GlobalShortcutControllerTests {
       terminator: ShortcutTerminator()
     )
     let task = Task { await lifecycle.handleShortcut() }
-    await Task.yield()
+    await reader.waitUntilReadStarted()
     #expect(model.state == .checking)
 
     await lifecycle.dismissPopover()
@@ -254,6 +297,27 @@ private struct ShortcutDetector: LanguageDetecting {
   ) async throws -> LanguageVerdict { .estonian }
 }
 
+private actor CountingShortcutSelectionReader: SelectionReading {
+  private(set) var readCount = 0
+
+  func readSelectedText() async throws -> SelectedText {
+    readCount += 1
+    return SelectedText("Tere")
+  }
+}
+
+private actor CountingShortcutDetector: LanguageDetecting {
+  private(set) var requestCount = 0
+
+  func detectLanguage(
+    of selectedText: SelectedText,
+    configuration: LanguageCheckConfiguration
+  ) async throws -> LanguageVerdict {
+    requestCount += 1
+    return .estonian
+  }
+}
+
 private actor ControllableShortcutSelectionReader: SelectionReading {
   private var continuation: CheckedContinuation<SelectedText, Never>?
   private var didStartReading = false
@@ -281,9 +345,42 @@ private actor ControllableShortcutSelectionReader: SelectionReading {
 }
 
 private actor CancellableShortcutSelectionReader: SelectionReading {
+  private var didStartReading = false
+  private var startWaiters: [CheckedContinuation<Void, Never>] = []
+
   func readSelectedText() async throws -> SelectedText {
+    didStartReading = true
+    let waiters = startWaiters
+    startWaiters.removeAll()
+    for waiter in waiters {
+      waiter.resume()
+    }
     try await Task.sleep(for: .seconds(60))
     return SelectedText("Tere")
+  }
+
+  func waitUntilReadStarted() async {
+    guard !didStartReading else { return }
+    await withCheckedContinuation { startWaiters.append($0) }
+  }
+}
+
+private actor AsyncSignal {
+  private var isSignaled = false
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+
+  func signal() {
+    isSignaled = true
+    let pending = waiters
+    waiters.removeAll()
+    for waiter in pending {
+      waiter.resume()
+    }
+  }
+
+  func wait() async {
+    guard !isSignaled else { return }
+    await withCheckedContinuation { waiters.append($0) }
   }
 }
 
