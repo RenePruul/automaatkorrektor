@@ -41,10 +41,6 @@ final class ApplicationLifecycleController: ObservableObject {
     await model.refreshAccessibilityPermission()
   }
 
-  func applicationDidBecomeActive() async {
-    await model.refreshAccessibilityPermission()
-  }
-
   func handleShortcut() async {
     isPopoverPresented = true
     await model.check()

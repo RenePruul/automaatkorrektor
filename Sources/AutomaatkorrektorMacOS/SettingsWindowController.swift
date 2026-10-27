@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-struct APISettingsView: View {
+struct APISettingsView<Shortcut: GlobalShortcutControlling>: View {
   @ObservedObject var settings: APISettingsStore
-  @ObservedObject var shortcut: GlobalShortcutController
+  @ObservedObject var shortcut: Shortcut
 
   var body: some View {
     Form {
@@ -44,7 +44,7 @@ struct APISettingsView: View {
 final class SettingsWindowController {
   private let window: NSWindow
 
-  init(settings: APISettingsStore, shortcut: GlobalShortcutController) {
+  init<Shortcut: GlobalShortcutControlling>(settings: APISettingsStore, shortcut: Shortcut) {
     let hostingController = NSHostingController(
       rootView: APISettingsView(settings: settings, shortcut: shortcut)
     )

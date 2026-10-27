@@ -4,7 +4,12 @@ import AutomaatkorrektorCore
 @main
 @MainActor
 final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
-  private var menuBarController: MenuBarController?
+  private var menuBarController: MenuBarController<GlobalShortcutController>?
+  private var activationModel: LanguageCheckViewModel?
+
+  init(activationModel: LanguageCheckViewModel? = nil) {
+    self.activationModel = activationModel
+  }
 
   static func main() {
     let application = NSApplication.shared
@@ -26,6 +31,7 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
       useCase: useCase,
       accessibilityPermission: MacOSAccessibilityPermissionController()
     )
+    activationModel = model
     let lifecycle = ApplicationLifecycleController(
       model: model,
       terminator: NSApplicationTerminator()
@@ -52,7 +58,10 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidBecomeActive(_ notification: Notification) {
-    guard let menuBarController else { return }
-    Task { await menuBarController.applicationDidBecomeActive() }
+    Task { await refreshAccessibilityPermissionAfterActivation() }
+  }
+
+  func refreshAccessibilityPermissionAfterActivation() async {
+    await activationModel?.refreshAccessibilityPermission()
   }
 }

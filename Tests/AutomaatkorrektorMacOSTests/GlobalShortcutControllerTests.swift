@@ -6,7 +6,7 @@ import Testing
 @MainActor
 @Suite("Global shortcut")
 struct GlobalShortcutControllerTests {
-  @Test("startup registers option-command-E on key up and one release invokes once")
+  @Test("startup requests a key-up registration and one release invokes once")
   func defaultShortcutInvokesOnKeyUp() {
     let backend = ShortcutBackendSpy()
     let controller = GlobalShortcutController(backend: backend)
@@ -15,7 +15,7 @@ struct GlobalShortcutControllerTests {
     controller.start { invocationCount += 1 }
 
     #expect(backend.registeredShortcut == .default)
-    #expect(backend.registeredPhase == .keyUp)
+    #expect(backend.keyUpRegistrationCount == 1)
     backend.sendKeyDown()
     backend.sendKeyUp()
     #expect(invocationCount == 1)
@@ -180,7 +180,7 @@ private final class ShortcutBackendSpy: GlobalShortcutBackend {
   var storedShortcut: GlobalShortcut?
   var isIntentionallyCleared = false
   var registeredShortcut: GlobalShortcut?
-  var registeredPhase: GlobalShortcutPhase?
+  var keyUpRegistrationCount = 0
   var rejectedShortcuts: Set<GlobalShortcut> = []
   var failingShortcuts: Set<GlobalShortcut> = []
   var stopCount = 0
@@ -194,16 +194,15 @@ private final class ShortcutBackendSpy: GlobalShortcutBackend {
     isIntentionallyCleared ? nil : (storedShortcut ?? defaultShortcut)
   }
 
-  func register(
+  func registerKeyUp(
     _ shortcut: GlobalShortcut,
-    phase: GlobalShortcutPhase,
     handler: @escaping () -> Void
   ) -> Bool {
     guard !rejectedShortcuts.contains(shortcut), !failingShortcuts.contains(shortcut) else {
       return false
     }
     registeredShortcut = shortcut
-    registeredPhase = phase
+    keyUpRegistrationCount += 1
     self.handler = handler
     return true
   }

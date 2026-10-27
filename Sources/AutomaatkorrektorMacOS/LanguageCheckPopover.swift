@@ -1,9 +1,9 @@
 import AutomaatkorrektorCore
 import SwiftUI
 
-struct LanguageCheckPopover: View {
+struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
   @ObservedObject var model: LanguageCheckViewModel
-  @ObservedObject var shortcut: GlobalShortcutController
+  @ObservedObject var shortcut: Shortcut
   let showSettings: () -> Void
   let quit: @MainActor () async -> Void
 

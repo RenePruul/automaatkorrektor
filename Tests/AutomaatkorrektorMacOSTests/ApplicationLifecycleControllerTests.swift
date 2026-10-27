@@ -63,8 +63,8 @@ struct ApplicationLifecycleControllerTests {
     #expect(terminator.terminationCount == 1)
   }
 
-  @Test("popover opening and application activation refresh permission without reading text")
-  func lifecycleRefreshesPermission() async {
+  @Test("popover opening refreshes permission without reading text")
+  func popoverRefreshesPermission() async {
     let permission = LifecyclePermissionController()
     let reader = CountingSelectionReader()
     let detector = CountingDetector()
@@ -81,9 +81,29 @@ struct ApplicationLifecycleControllerTests {
     )
 
     await lifecycle.popoverDidOpen()
-    await lifecycle.applicationDidBecomeActive()
 
-    #expect(permission.checkCount == 2)
+    #expect(permission.checkCount == 1)
+    #expect(await reader.readCount == 0)
+    #expect(await detector.requestCount == 0)
+  }
+
+  @Test("application activation refreshes permission directly without reading text")
+  func applicationActivationRefreshesPermission() async {
+    let permission = LifecyclePermissionController()
+    let reader = CountingSelectionReader()
+    let detector = CountingDetector()
+    let model = LanguageCheckViewModel(
+      useCase: LanguageCheckUseCase(
+        selectionReader: reader,
+        languageDetector: detector
+      ),
+      accessibilityPermission: permission
+    )
+    let application = AutomaatkorrektorApp(activationModel: model)
+
+    await application.refreshAccessibilityPermissionAfterActivation()
+
+    #expect(permission.checkCount == 1)
     #expect(await reader.readCount == 0)
     #expect(await detector.requestCount == 0)
   }

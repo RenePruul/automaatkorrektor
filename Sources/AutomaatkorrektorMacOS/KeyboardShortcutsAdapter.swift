@@ -22,9 +22,8 @@ final class KeyboardShortcutsBackend: GlobalShortcutBackend {
     KeyboardShortcuts.getShortcut(for: name).map(Self.globalShortcut)
   }
 
-  func register(
+  func registerKeyUp(
     _ shortcut: GlobalShortcut,
-    phase: GlobalShortcutPhase,
     handler: @escaping () -> Void
   ) -> Bool {
     KeyboardShortcuts.removeHandler(for: name)
@@ -68,8 +67,8 @@ final class KeyboardShortcutsBackend: GlobalShortcutBackend {
   }
 }
 
-struct GlobalShortcutRecorder: View {
-  @ObservedObject var controller: GlobalShortcutController
+struct GlobalShortcutRecorder<Controller: GlobalShortcutControlling>: View {
+  @ObservedObject var controller: Controller
 
   var body: some View {
     KeyboardShortcuts.Recorder(

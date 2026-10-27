@@ -41,16 +41,11 @@ struct GlobalShortcut: Hashable, Sendable {
   ]
 }
 
-enum GlobalShortcutPhase: Sendable {
-  case keyUp
-}
-
 @MainActor
 protocol GlobalShortcutBackend: AnyObject {
   func loadShortcut(default defaultShortcut: GlobalShortcut) -> GlobalShortcut?
-  func register(
+  func registerKeyUp(
     _ shortcut: GlobalShortcut,
-    phase: GlobalShortcutPhase,
     handler: @escaping () -> Void
   ) -> Bool
   func unregister()
@@ -60,7 +55,7 @@ protocol GlobalShortcutBackend: AnyObject {
 }
 
 @MainActor
-protocol GlobalShortcutControlling: AnyObject {
+protocol GlobalShortcutControlling: AnyObject, ObservableObject {
   var shortcut: GlobalShortcut? { get }
   var registrationMessage: String? { get }
   func start(handler: @escaping () -> Void)
@@ -131,6 +126,6 @@ final class GlobalShortcutController: ObservableObject, GlobalShortcutControllin
 
   private func register(_ shortcut: GlobalShortcut) -> Bool {
     guard let handler else { return false }
-    return backend.register(shortcut, phase: .keyUp, handler: handler)
+    return backend.registerKeyUp(shortcut, handler: handler)
   }
 }

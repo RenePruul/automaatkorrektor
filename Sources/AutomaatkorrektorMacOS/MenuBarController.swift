@@ -2,10 +2,10 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class MenuBarController: NSObject, NSPopoverDelegate {
+final class MenuBarController<Shortcut: GlobalShortcutControlling>: NSObject, NSPopoverDelegate {
   private let model: LanguageCheckViewModel
   private let lifecycle: ApplicationLifecycleController
-  private let shortcut: GlobalShortcutController
+  private let shortcut: Shortcut
   private let settingsWindowController: SettingsWindowController
   private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   private let popover = NSPopover()
@@ -14,7 +14,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     model: LanguageCheckViewModel,
     lifecycle: ApplicationLifecycleController,
     settings: APISettingsStore,
-    shortcut: GlobalShortcutController
+    shortcut: Shortcut
   ) {
     self.model = model
     self.lifecycle = lifecycle
@@ -73,10 +73,6 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     if refreshPermission {
       Task { await lifecycle.popoverDidOpen() }
     }
-  }
-
-  func applicationDidBecomeActive() async {
-    await lifecycle.applicationDidBecomeActive()
   }
 
   private func closePopover() {
