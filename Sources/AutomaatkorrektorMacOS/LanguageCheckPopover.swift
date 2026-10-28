@@ -20,17 +20,6 @@ struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
         Divider()
       }
 
-      if model.showsRetryAction {
-        Button("Proovi uuesti") {
-          Task { await model.retryUnavailableService() }
-        }
-        .buttonStyle(.borderedProminent)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 12)
-
-        Divider()
-      }
-
       row(
         title: "Kontrolli valitud teksti",
         trailing: shortcut.shortcut?.displayName ?? "—",
@@ -74,6 +63,15 @@ struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
           .font(.caption)
           .foregroundStyle(.secondary)
           .fixedSize(horizontal: false, vertical: true)
+
+        if model.showsRetryAction {
+          Button("Proovi uuesti") {
+            Task { await model.retryUnavailableService() }
+          }
+          .buttonStyle(.borderedProminent)
+          .controlSize(.small)
+          .padding(.top, 5)
+        }
       }
     }
   }
@@ -101,6 +99,7 @@ struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
       .buttonStyle(.link)
     }
     .padding(.horizontal, 14)
+    .padding(.top, 12)
     .padding(.bottom, 12)
   }
 
