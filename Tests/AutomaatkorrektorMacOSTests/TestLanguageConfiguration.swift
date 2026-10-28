@@ -1,7 +1,7 @@
 import AutomaatkorrektorCore
 
 let testLanguageConfiguration = LanguageCheckConfiguration(
-  validatedServiceBaseURL: "http://127.0.0.1:8000"
+  endpoint: .default
 )
 
 private struct TestLanguageConfigurationProvider: LanguageCheckConfiguring {

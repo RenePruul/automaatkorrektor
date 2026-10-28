@@ -3,8 +3,11 @@
 Use only synthetic text and a stub language API. Never paste personal writing,
 passwords, tokens, or the privacy-canary value into the evidence file or report.
 
-Copy `release/manual-evidence.example.tsv` outside Git tracking, replace a row's
-`PENDING` only after performing it, and run:
+First build the candidate with `scripts/build-release-candidate.sh --tag TAG`.
+Copy `release/manual-evidence.example.tsv` outside Git tracking and replace its
+three `Candidate-*` header placeholders with the exact values in the generated
+`.candidate-metadata.txt`. Replace a row's `PENDING` only after performing it
+against that exact candidate, and run:
 
 ```sh
 scripts/release-gate.sh \
@@ -12,7 +15,32 @@ scripts/release-gate.sh \
   --report .release-evidence/report.md
 ```
 
-The command exits with status 2 until all 29 required rows pass.
+The command exits with status 2 until all 35 required rows pass.
+
+## Produced DMG installation path
+
+Perform this section with the DMG made by `scripts/build-release-candidate.sh`, not an
+app launched from Xcode or DerivedData.
+
+1. Verify the `.dmg.sha256` file and confirm that the tag and commit in
+   `.release-metadata.txt` match the exact Git tag as described in the README.
+2. Open the DMG, confirm it contains only the expected app, and copy
+   Automaatkorrektor to `/Applications`.
+3. Launch the installed copy. Observe the expected Gatekeeper flow for a build
+   that is not Developer ID signed or Apple notarized. Recover only with
+   Control-click → **Open**, or **System Settings → Privacy & Security → Open
+   Anyway**. Never disable Gatekeeper globally.
+4. Grant Accessibility permission to the installed copy. If a prior ad-hoc
+   build has stale permission, remove its Accessibility entry, add the installed
+   copy, enable it, and reopen the app.
+5. Start the local language service separately at `http://127.0.0.1:8000` and
+   complete one explicit check in TextEdit. Confirm the service receives one
+   request and that the app shows the expected verdict.
+
+Record only the artifact version, tag, OS version, recovery paths exercised,
+and pass/fail outcome. Do not record selected text. This completes
+`manual-dmg-install` and does not upload an artifact or change an external
+service.
 
 ## Offline stub language API
 
@@ -142,6 +170,42 @@ fixture text.
 5. Stop the fixture, unset `AUTOMAATKORREKTOR_STUB_CANARY_SHA256`, and record
    only pass/fail plus a neutral evidence note. Never copy the value or its hash
    into the TSV or report.
+
+## Language-check consent privacy path
+
+Use an operator-controlled, compatible remote HTTPS fixture whose request body
+is never logged or retained. It must expose only a volatile request count,
+received JSON field names, body byte count, and a canary digest-match boolean.
+Do not use a public third-party endpoint. Configure the client with the exact
+fixture origin shown by the consent UI.
+
+1. Enter a fresh unique synthetic value beginning with the documented canary
+   prefix into an eligible field. Do not use the clipboard, terminal arguments,
+   shell history, a fixture file, or the evidence TSV. Provide its digest to the
+   remote fixture through a no-echo, volatile mechanism equivalent to the local
+   procedure above.
+2. Record the fixture's metadata-only baseline request count. Invoke an explicit
+   check and choose **Refuse**. Require the request count to remain unchanged
+   and confirm no selected text was read or shown by the client.
+3. Invoke a fresh explicit check, confirm that the displayed origin exactly
+   matches the configured HTTPS origin, and choose **Allow**. Require the
+   request count to increase by exactly one, `canary_match` to be true, and the
+   only JSON field name to be `text`. The fixture must not observe a request to
+   any other origin.
+4. Change the configured service to a different HTTPS origin. Require a new
+   consent prompt and no request before a decision. Restore the original
+   service only after recording the metadata-only outcome.
+5. Revoke the saved language-check consent in Settings. Invoke another check,
+   choose **Refuse**, and require the request count to remain unchanged.
+6. Stop the fixture and clear the volatile canary digest. Search the app's
+   visible UI, settings, unified log, generated report, and release output for
+   the complete value; it must appear nowhere. Never put the complete value or
+   its digest in a report, committed fixture, screenshot, or evidence note.
+
+Record `manual-language-check-consent` using only the displayed origin, request-count
+deltas, tested app version, date, and pass/fail. This procedure verifies that
+refusal sends no remote request and approval sends only the selected `text`
+field to the displayed origin.
 
 ## OS and API boundaries
 

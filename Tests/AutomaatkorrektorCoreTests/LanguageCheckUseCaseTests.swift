@@ -2,8 +2,66 @@ import Testing
 
 @testable import AutomaatkorrektorCore
 
+@Suite("Language service endpoint")
+struct LanguageServiceEndpointTests {
+  @Test("every full 127/8 IPv4 literal is local")
+  func fullIPv4LoopbackRangeIsLocal() throws {
+    let endpoint = try LanguageServiceEndpoint(validating: "http://127.0.0.2:8000")
+
+    #expect(endpoint.languageCheckConsentOrigin == nil)
+    #expect(endpoint.transportBaseURL == "http://127.0.0.2:8000")
+  }
+
+  @Test(
+    "invalid and non-loopback HTTP hosts fail closed",
+    arguments: [
+      "http://127.0.0.999:8000",
+      "https://127.0.0.999:8443",
+      "https://1.2.3:8443",
+      "http://128.0.0.1:8000",
+      "http://127.0.0.1:0",
+      "http://127.0.0.1:65536",
+    ])
+  func invalidLocalEndpointsAreRejected(value: String) {
+    #expect(throws: LanguageServiceEndpoint.ValidationError.self) {
+      try LanguageServiceEndpoint(validating: value)
+    }
+  }
+}
+
 @Suite("Language check")
 struct LanguageCheckUseCaseTests {
+  @Test("missing language-check consent blocks before selected text is read")
+  func missingLanguageCheckConsentStopsBeforeSelectionAccess() async {
+    let endpoint = try! LanguageServiceEndpoint(validating: "https://language.example.test")
+    let origin = endpoint.languageCheckConsentOrigin!
+    let configuration = FixedConfigurationProvider(
+      LanguageCheckConfiguration(endpoint: endpoint)
+    )
+    let selection = SelectionReaderStub(text: "PRIVAATSUS-KANAARILIND")
+    let detector = LanguageDetectorStub(verdict: .estonian)
+    let consent = LanguageCheckConsentStub(hasConsent: false)
+    let useCase = LanguageCheckUseCase(
+      configurationProvider: configuration,
+      selectionReader: selection,
+      languageDetector: detector,
+      languageCheckConsent: consent
+    )
+
+    do {
+      _ = try await useCase.check()
+      Issue.record("The unapproved remote check returned a verdict")
+    } catch let block as LanguageCheckBlock {
+      #expect(block == .languageCheckConsentRequired(origin))
+    } catch {
+      Issue.record("Unexpected remote-check error: \(error)")
+    }
+
+    #expect(await selection.readCount == 0)
+    #expect(await detector.receivedTextCount == 0)
+    #expect(await consent.requestedOrigins == [origin])
+  }
+
   @Test("an explicit language check returns a verdict without exposing selected text")
   func completeLanguageCheck() async throws {
     let selection = SelectionReaderStub(text: "PRIVAATSUS-KANAARILIND")
@@ -75,10 +133,10 @@ struct LanguageCheckUseCaseTests {
   @Test("each check keeps the validated configuration captured before selection")
   func configurationSnapshotIsImmutablePerCheck() async throws {
     let original = LanguageCheckConfiguration(
-      validatedServiceBaseURL: "https://original.example.test"
+      endpoint: try! LanguageServiceEndpoint(validating: "http://127.0.0.1:8000")
     )
     let replacement = LanguageCheckConfiguration(
-      validatedServiceBaseURL: "https://replacement.example.test"
+      endpoint: try! LanguageServiceEndpoint(validating: "http://127.0.0.1:9000")
     )
     let configuration = MutableConfigurationProvider(original)
     let selection = GatedSelectionReader(text: "Tere")
@@ -104,8 +162,18 @@ struct LanguageCheckUseCaseTests {
 private let fixedConfiguration = FixedConfigurationProvider()
 
 private struct FixedConfigurationProvider: LanguageCheckConfiguring {
+  private let configuration: LanguageCheckConfiguration
+
+  init(
+    _ configuration: LanguageCheckConfiguration = LanguageCheckConfiguration(
+      endpoint: .default
+    )
+  ) {
+    self.configuration = configuration
+  }
+
   func currentConfiguration() -> LanguageCheckConfiguration {
-    LanguageCheckConfiguration(validatedServiceBaseURL: "https://language.example.test")
+    configuration
   }
 }
 
@@ -197,6 +265,20 @@ private actor LanguageDetectorStub: LanguageDetecting {
   ) async throws -> LanguageVerdict {
     receivedTexts.append(selectedText.value)
     return verdict
+  }
+}
+
+private actor LanguageCheckConsentStub: LanguageCheckConsenting {
+  private let consented: Bool
+  private(set) var requestedOrigins: [LanguageServiceOrigin] = []
+
+  init(hasConsent: Bool) {
+    consented = hasConsent
+  }
+
+  func hasConsent(for origin: LanguageServiceOrigin) -> Bool {
+    requestedOrigins.append(origin)
+    return consented
   }
 }
 

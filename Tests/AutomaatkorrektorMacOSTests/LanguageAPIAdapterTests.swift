@@ -18,7 +18,8 @@ struct LanguageAPIAdapterTests {
     let useCase = LanguageCheckUseCase(
       configurationProvider: settings,
       selectionReader: reader,
-      languageDetector: LanguageAPIClient(transport: transport)
+      languageDetector: LanguageAPIClient(transport: transport),
+      languageCheckConsent: GrantAllLanguageCheckConsent()
     )
 
     let firstCheck = Task { try await useCase.check() }
@@ -109,7 +110,7 @@ struct LanguageAPIAdapterTests {
       try await detector.detectLanguage(
         of: SelectedText("Tere"),
         configuration: LanguageCheckConfiguration(
-          validatedServiceBaseURL: "https://api.example.test"
+          endpoint: try! LanguageServiceEndpoint(validating: "https://api.example.test")
         )
       )
     }
@@ -156,7 +157,7 @@ struct LanguageAPIAdapterTests {
       try await detector.detectLanguage(
         of: SelectedText("AINULT-ÜKS-KORD"),
         configuration: LanguageCheckConfiguration(
-          validatedServiceBaseURL: "https://configured.example.test"
+          endpoint: try! LanguageServiceEndpoint(validating: "https://configured.example.test")
         )
       )
     }
@@ -187,15 +188,36 @@ private actor URLSnapshotGatedSelectionReader: SelectionReading {
   }
 }
 
-@Suite("API base URL settings")
+private struct GrantAllLanguageCheckConsent: LanguageCheckConsenting {
+  func hasConsent(for origin: LanguageServiceOrigin) -> Bool { true }
+}
+
+@Suite("Language service endpoint settings")
 @MainActor
-struct APIBaseURLSettingsTests {
-  @Test("the default and exact loopback HTTP addresses are accepted")
-  func loopbackPolicy() throws {
-    #expect(APIBaseURL.default.url.absoluteString == "http://127.0.0.1:8000")
-    #expect(try APIBaseURL(validating: "http://127.0.0.1:9000").url.port == 9000)
-    #expect(try APIBaseURL(validating: "http://localhost:8000").url.host == "localhost")
-    #expect(try APIBaseURL(validating: "http://[::1]:8000").url.host == "::1")
+struct LanguageServiceEndpointSettingsTests {
+  @Test(
+    "the default and literal loopback HTTP addresses are accepted",
+    arguments: [
+      "http://127.0.0.2:9000",
+      "http://localhost:8000",
+      "http://[::1]:8000",
+      "https://localhost:8443",
+    ])
+  func loopbackPolicy(value: String) throws {
+    #expect(LanguageServiceEndpoint.default.transportBaseURL == "http://127.0.0.1:8000")
+    #expect(LanguageServiceEndpoint.default.languageCheckConsentOrigin == nil)
+    #expect(try LanguageServiceEndpoint(validating: value).languageCheckConsentOrigin == nil)
+  }
+
+  @Test("remote HTTPS origins normalize host casing and effective ports")
+  func remoteOriginNormalization() throws {
+    let implicitPort = try LanguageServiceEndpoint(validating: "HTTPS://Language.Example.EE")
+    let explicitPort = try LanguageServiceEndpoint(validating: "https://language.example.ee:443")
+    let customPort = try LanguageServiceEndpoint(validating: "https://language.example.ee:8443")
+
+    #expect(implicitPort.languageCheckConsentOrigin == explicitPort.languageCheckConsentOrigin)
+    #expect(implicitPort.languageCheckConsentOrigin?.port == 443)
+    #expect(customPort.languageCheckConsentOrigin?.port == 8443)
   }
 
   @Test(
@@ -208,10 +230,16 @@ struct APIBaseURLSettingsTests {
       "https://example.com#detect",
       "ftp://example.com",
       "not a url",
+      "http://127.0.0.1:0",
+      "http://127.0.0.1:65536",
+      "http://127.0.0.999:8000",
+      "https://127.0.0.999:8443",
+      "https://1.2.3:8443",
+      "http://128.0.0.1:8000",
     ])
   func rejectsUnsafeValues(value: String) {
-    #expect(throws: APIBaseURL.ValidationError.self) {
-      try APIBaseURL(validating: value)
+    #expect(throws: LanguageServiceEndpoint.ValidationError.self) {
+      try LanguageServiceEndpoint(validating: value)
     }
   }
 
@@ -221,12 +249,12 @@ struct APIBaseURLSettingsTests {
     let settings = APISettingsStore(storage: storage)
 
     settings.updateBaseURL("https://language.example.ee")
-    #expect(settings.baseURL.url.absoluteString == "https://language.example.ee")
+    #expect(settings.endpoint.transportBaseURL == "https://language.example.ee")
     #expect(storage.string(forKey: APISettingsStore.storageKey) == "https://language.example.ee")
     #expect(settings.validationMessage == nil)
 
     settings.updateBaseURL("http://language.example.ee")
-    #expect(settings.baseURL.url.absoluteString == "https://language.example.ee")
+    #expect(settings.endpoint.transportBaseURL == "https://language.example.ee")
     #expect(storage.string(forKey: APISettingsStore.storageKey) == "https://language.example.ee")
     #expect(settings.validationMessage != nil)
   }
@@ -239,7 +267,7 @@ struct APIBaseURLSettingsTests {
 
     let settings = APISettingsStore(storage: storage)
 
-    #expect(settings.baseURL == .default)
+    #expect(settings.endpoint == .default)
     #expect(storage.string(forKey: APISettingsStore.storageKey) == "http://127.0.0.1:8000")
   }
 }

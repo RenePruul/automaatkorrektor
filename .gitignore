@@ -24,6 +24,10 @@ GLOSSARY.md
 
 # macOS / Xcode
 DerivedData/
+*.app/
+*.dmg
+*.dmg.sha256
+*.release-metadata.txt
 *.xcuserstate
 xcuserdata/
 

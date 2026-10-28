@@ -94,14 +94,16 @@ final class MenuBarController<Shortcut: GlobalShortcutControlling>: NSObject, NS
     model: LanguageCheckViewModel,
     lifecycle: ApplicationLifecycleController,
     settings: APISettingsStore,
-    shortcut: Shortcut
+    shortcut: Shortcut,
+    languageCheckConsent: LanguageCheckConsentStore
   ) {
     self.model = model
     self.lifecycle = lifecycle
     self.shortcut = shortcut
     settingsWindowController = SettingsWindowController(
       settings: settings,
-      shortcut: shortcut
+      shortcut: shortcut,
+      languageCheckConsent: languageCheckConsent
     )
     super.init()
   }

@@ -1,3 +1,6 @@
+# Candidate-Tag	REPLACE_WITH_CANDIDATE_TAG
+# Candidate-Commit	REPLACE_WITH_CANDIDATE_COMMIT
+# Candidate-SHA256	REPLACE_WITH_CANDIDATE_SHA256
 # id	status	evidence note (metadata only; never selected text)
 integration-native-host	PENDING	Run the test-only bundled AX harness; confirm production rejects its host.
 integration-permission	PENDING	Grant and revoke real Accessibility permission.
@@ -9,4 +12,6 @@ manual-menu-shortcut	PENDING	Compare menu and shortcut behavior.
 manual-errors-cancellation	PENDING	Run visible error and cancellation checks.
 manual-privacy-canary	PENDING	Run the volatile synthetic canary procedure.
 manual-supported-os	PENDING	Run the core manual matrix on the current development Mac running macOS 15 or later.
+manual-dmg-install	PENDING	Install from the produced DMG and complete the Gatekeeper, Accessibility, and local-check path.
+manual-language-check-consent	PENDING	Verify decline, grant, origin change, and revocation with privacy-safe synthetic evidence.
 boundary-api-contract	PENDING	Record the tested language API commit.

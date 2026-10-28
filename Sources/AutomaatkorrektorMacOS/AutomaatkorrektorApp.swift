@@ -22,14 +22,17 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
     NSApplication.shared.setActivationPolicy(.accessory)
 
     let settings = APISettingsStore()
+    let languageCheckConsent = LanguageCheckConsentStore()
     let useCase = LanguageCheckUseCase(
       configurationProvider: settings,
       selectionReader: AccessibilitySelectedTextReader(),
-      languageDetector: LanguageAPIClient()
+      languageDetector: LanguageAPIClient(),
+      languageCheckConsent: languageCheckConsent
     )
     let model = LanguageCheckViewModel(
       useCase: useCase,
-      accessibilityPermission: MacOSAccessibilityPermissionController()
+      accessibilityPermission: MacOSAccessibilityPermissionController(),
+      languageCheckConsent: languageCheckConsent
     )
     activationModel = model
     let lifecycle = ApplicationLifecycleController(
@@ -41,7 +44,8 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
       model: model,
       lifecycle: lifecycle,
       settings: settings,
-      shortcut: shortcut
+      shortcut: shortcut,
+      languageCheckConsent: languageCheckConsent
     )
 
     lifecycle.launch()

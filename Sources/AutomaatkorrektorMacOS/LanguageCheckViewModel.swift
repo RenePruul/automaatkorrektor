@@ -24,6 +24,17 @@ struct LanguageCheckPresentation: Sendable, Equatable {
   }
 }
 
+struct LanguageCheckConsentPresentation: Sendable, Equatable {
+  let origin: LanguageServiceOrigin
+
+  var explanation: String {
+    "Valitud tekst saadetakse teenuse \(origin.displayValue) operaatorile."
+  }
+
+  let warning =
+    "Kasuta ainult usaldusväärset teenust. Ära saada paroole, saladusi ega tundlikke isikuandmeid."
+}
+
 private let readyPresentation = LanguageCheckPresentation(
   title: "Programm on tööks valmis",
   detail: "Vali tekst ja käivita eesti keele kontroll.",
@@ -90,6 +101,15 @@ extension LanguageCheckPresentationState {
         symbol: "selection.pin.in.out",
         tone: .caution
       )
+    case .blocked(.languageCheckConsentRequired(let origin)):
+      LanguageCheckPresentation(
+        title: "Kaugteenus vajab luba",
+        detail: """
+          Valitud teksti saatmiseks teenusele \(origin.displayValue) on vaja sinu nõusolekut.
+          """,
+        symbol: "network.badge.shield.half.filled",
+        tone: .caution
+      )
     case .failed:
       LanguageCheckPresentation(
         title: "Kontroll ebaõnnestus",
@@ -108,15 +128,18 @@ final class LanguageCheckViewModel: ObservableObject {
 
   private let useCase: LanguageCheckUseCase
   private let accessibilityPermission: any AccessibilityPermissionControlling
+  private let languageCheckConsent: LanguageCheckConsentStore?
   private var hasAccessibilityPermission: Bool?
   private var generation = 0
 
   init(
     useCase: LanguageCheckUseCase,
-    accessibilityPermission: any AccessibilityPermissionControlling
+    accessibilityPermission: any AccessibilityPermissionControlling,
+    languageCheckConsent: LanguageCheckConsentStore? = nil
   ) {
     self.useCase = useCase
     self.accessibilityPermission = accessibilityPermission
+    self.languageCheckConsent = languageCheckConsent
   }
 
   var visiblePresentation: LanguageCheckPresentation {
@@ -133,6 +156,30 @@ final class LanguageCheckViewModel: ObservableObject {
   func retryUnavailableService() async {
     guard showsRetryAction else { return }
     await check()
+  }
+
+  var pendingConsentOrigin: LanguageServiceOrigin? {
+    guard case .blocked(.languageCheckConsentRequired(let origin)) = state else {
+      return nil
+    }
+    return origin
+  }
+
+  var languageCheckConsentPresentation: LanguageCheckConsentPresentation? {
+    pendingConsentOrigin.map(LanguageCheckConsentPresentation.init(origin:))
+  }
+
+  func grantLanguageCheckConsent() async {
+    guard let origin = pendingConsentOrigin, let languageCheckConsent else { return }
+    languageCheckConsent.grantConsent(for: origin)
+    state = .waiting
+    await check()
+  }
+
+  func declineLanguageCheckConsent() {
+    guard pendingConsentOrigin != nil else { return }
+    generation += 1
+    state = .waiting
   }
 
   func check() async {

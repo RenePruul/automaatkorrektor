@@ -65,6 +65,15 @@ struct LanguageCheckViewModelTests {
       (.blocked(.accessibilityPermissionRequired), "Accessibility-luba puudub"),
       (.blocked(.unsupportedTextField), "Tekstivälja ei toetata"),
       (.blocked(.noSelection), "Teksti pole valitud"),
+      (
+        .blocked(
+          .languageCheckConsentRequired(
+            try! LanguageServiceEndpoint(validating: "https://api.example.ee")
+              .languageCheckConsentOrigin!
+          )
+        ),
+        "Kaugteenus vajab luba"
+      ),
       (.failed(.unavailableService), "Kontroll ebaõnnestus"),
     ]
 

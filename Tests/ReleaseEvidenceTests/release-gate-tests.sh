@@ -80,10 +80,16 @@ if [ "$exit_code" -ne 2 ]; then
   exit 1
 fi
 
-test "$(grep -Ec '^\| (PASS|FAIL|PENDING) \|' "$report")" -eq 29
+test "$(grep -Ec '^\| (PASS|FAIL|PENDING) \|' "$report")" -eq 35
 grep -Fq '| PASS | core-eligibility |' "$report"
+grep -Fq '| PASS | language-check-consent-decline |' "$report"
+grep -Fq '| PASS | language-check-consent-grant |' "$report"
+grep -Fq '| PASS | language-check-consent-origin-change |' "$report"
+grep -Fq '| PASS | language-check-consent-revocation |' "$report"
 grep -Fq '| PENDING | integration-native-host |' "$report"
 grep -Fq '| PENDING | manual-textedit |' "$report"
+grep -Fq '| PENDING | manual-dmg-install |' "$report"
+grep -Fq '| PENDING | manual-language-check-consent |' "$report"
 grep -Fq '| PENDING | boundary-api-contract |' "$report"
 grep -Fq '**Release decision:** BLOCKED' "$report"
 grep -Fq "$expected_commit" "$report"
@@ -113,6 +119,7 @@ for evidence_id in \
   integration-native-host integration-permission manual-textedit manual-safari \
   manual-chrome manual-permission-ui manual-menu-shortcut \
   manual-errors-cancellation manual-privacy-canary manual-supported-os \
+  manual-dmg-install manual-language-check-consent \
   boundary-api-contract
 do
   printf '%s\tPASS\tVerified with synthetic fixtures; metadata recorded externally.\n' \
@@ -123,7 +130,7 @@ PATH="$fake_bin:$PATH" "$repo_root/scripts/release-gate.sh" \
   --manual-evidence "$complete_manual" --report "$temporary_directory/ready-report.md" \
   >/dev/null
 grep -Fq '**Release decision:** READY' "$temporary_directory/ready-report.md"
-test "$(grep -Ec '^\| PASS \|' "$temporary_directory/ready-report.md")" -eq 29
+test "$(grep -Ec '^\| PASS \|' "$temporary_directory/ready-report.md")" -eq 35
 
 printf '%s\n' 'manual evidence validation tests passed'
 

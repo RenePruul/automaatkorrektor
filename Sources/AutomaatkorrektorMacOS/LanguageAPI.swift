@@ -18,7 +18,7 @@ struct LanguageAPIClient: LanguageDetecting, Sendable {
     of selectedText: SelectedText,
     configuration: LanguageCheckConfiguration
   ) async throws -> LanguageVerdict {
-    guard let baseURL = URL(string: configuration.serviceBaseURL) else {
+    guard let baseURL = URL(string: configuration.endpoint.transportBaseURL) else {
       throw LanguageCheckFailure.invalidInput
     }
     let endpoint = baseURL.appending(path: "detect", directoryHint: .notDirectory)

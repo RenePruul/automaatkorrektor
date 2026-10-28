@@ -20,6 +20,11 @@ struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
         Divider()
       }
 
+      if let consent = model.languageCheckConsentPresentation {
+        languageCheckConsent(consent)
+        Divider()
+      }
+
       row(
         title: "Kontrolli valitud teksti",
         trailing: shortcut.shortcut?.displayName ?? "—",
@@ -101,6 +106,31 @@ struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
     .padding(.horizontal, 14)
     .padding(.top, 12)
     .padding(.bottom, 12)
+  }
+
+  private func languageCheckConsent(_ consent: LanguageCheckConsentPresentation) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text(consent.explanation)
+        .font(.caption)
+
+      Text(consent.warning)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+      HStack(spacing: 8) {
+        Button("Luba ja kontrolli") {
+          Task { await model.grantLanguageCheckConsent() }
+        }
+        .buttonStyle(.borderedProminent)
+
+        Button("Loobu") {
+          model.declineLanguageCheckConsent()
+        }
+        .buttonStyle(.bordered)
+      }
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 12)
   }
 
   private func row(

@@ -241,7 +241,8 @@ if [ -n "$manual_evidence_path" ]; then
     case "$evidence_id" in
       integration-native-host|integration-permission|manual-textedit|manual-safari|\
       manual-chrome|manual-permission-ui|manual-menu-shortcut|manual-errors-cancellation|\
-      manual-privacy-canary|manual-supported-os|boundary-api-contract) ;;
+      manual-privacy-canary|manual-supported-os|manual-dmg-install|\
+      manual-language-check-consent|boundary-api-contract) ;;
       *)
         printf 'unknown manual evidence id: %s\n' "$evidence_id" >&2
         exit 64
@@ -308,12 +309,18 @@ add_automatic core-latest-wins 'Latest check wins' 'AutomaatkorrektorCoreTests: 
 add_automatic core-presentation 'Exhaustive presentation states' 'LanguageCheckViewModelTests: approved mutually exclusive states.'
 add_automatic core-permission-isolation 'Permission isolation' 'AccessibilityPermissionFlowTests: permission checks never read text.'
 
+# Four language-check consent checks at the agreed public seam.
+add_automatic language-check-consent-decline 'Language-check consent declined' 'LanguageCheckUseCaseTests and LanguageCheckConsentTests: declining performs no selection read or request.'
+add_automatic language-check-consent-grant 'Origin-specific language-check consent' 'LanguageCheckConsentTests: consent for the displayed origin starts one fresh explicit check.'
+add_automatic language-check-consent-origin-change 'Language-check consent origin change' 'LanguageCheckConsentTests: a changed host or effective port requires new consent.'
+add_automatic language-check-consent-revocation 'Language-check consent revoked' 'LanguageCheckConsentTests: revocation blocks the next check before content access.'
+
 # Six API-adapter checks.
 add_automatic api-request 'Exact POST /detect request' 'LanguageAPIAdapterTests: method, headers, URL, and one Unicode text field.'
 add_automatic api-verdicts 'Three verdicts' 'LanguageAPIAdapterTests: jah, ei, and ebakindel remain distinct.'
 add_automatic api-errors 'Stable error mapping' 'LanguageAPIAdapterTests: protocol, HTTP, and transport mappings.'
 add_automatic api-deadline 'Three-second deadline and no retry' 'LanguageAPIAdapterTests: three-second configuration and one request.'
-add_automatic api-url-policy 'Base URL security' 'APIBaseURLSettingsTests: loopback HTTP only and HTTPS elsewhere.'
+add_automatic api-url-policy 'Language-service endpoint security' 'LanguageServiceEndpointSettingsTests: loopback HTTP only and HTTPS elsewhere.'
 add_automatic api-ephemeral 'Ephemeral log-free transport' 'LanguageAPIAdapterTests: no cache, cookies, credentials, redirects, or body logging.'
 
 # Six adapter integration checks. Two require operator-controlled macOS state.
@@ -333,15 +340,17 @@ add_pending manual-menu-shortcut 'Menu and shortcut equivalence' 'Run both expli
 add_pending manual-errors-cancellation 'Visible failures and cancellation' 'Exercise timeout, unavailable, incompatible, and silent cancellation states.'
 add_pending manual-privacy-canary 'Synthetic privacy canary' 'Run the one-use canary procedure; do not put the canary in this file or report.'
 add_pending manual-supported-os 'macOS 15 or later' 'Run the core manual matrix on the current development Mac running macOS 15 or later.'
+add_pending manual-dmg-install 'Produced DMG installation path' 'Install the produced DMG and verify Gatekeeper, Accessibility recovery, and one local check.'
+add_pending manual-language-check-consent 'Language-check consent privacy path' 'Verify decline, grant, origin change, and revocation with a volatile synthetic canary.'
 
 # Three release-boundary checks.
 add_pending boundary-api-contract 'Tested language API contract and version' 'Record the tested API repository commit and confirm POST /detect wire compatibility.'
 add_automatic boundary-supported-scope 'Limited compatibility claims' 'README claims only TextEdit and standard Safari/Chrome fields.'
-add_automatic boundary-report 'Reproducible metadata-only report' 'This script records metadata, commands, and exactly 29 status rows.'
+add_automatic boundary-report 'Reproducible metadata-only report' 'This script records metadata, commands, and exactly 35 status rows.'
 
 row_count=$(wc -l < "$rows" | tr -d ' ')
-if [ "$row_count" -ne 29 ]; then
-  printf 'internal error: expected 29 evidence rows, got %s\n' "$row_count" >&2
+if [ "$row_count" -ne 35 ]; then
+  printf 'internal error: expected 35 evidence rows, got %s\n' "$row_count" >&2
   exit 70
 fi
 
@@ -357,7 +366,7 @@ fi
 {
   printf '# Automaatkorrektor macOS v0.1 release evidence\n\n'
   printf '**Release decision:** %s\n\n' "$decision"
-  printf 'All 29 rows are required. A FAIL or PENDING row blocks release; there is no score or waiver.\n\n'
+  printf 'All 35 rows are required. A FAIL or PENDING row blocks release; there is no score or waiver.\n\n'
   printf '## Environment\n\n'
   printf -- '- Commit: `%s`\n' "$commit"
   printf -- '- Git tree: `%s`\n' "$tree_state"
