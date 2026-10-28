@@ -15,15 +15,22 @@ scripts/release-gate.sh \
   --report .release-evidence/report.md
 ```
 
-The command exits with status 2 until all 35 required rows pass.
+The command exits with status 2 until all 35 required rows pass. Do not run
+finalization or expect final release outputs yet. After every row passes, use
+the finalization and final-output verification section at the end of this
+checklist.
 
 ## Produced DMG installation path
 
 Perform this section with the DMG made by `scripts/build-release-candidate.sh`, not an
 app launched from Xcode or DerivedData.
 
-1. Verify the `.dmg.sha256` file and confirm that the tag and commit in
-   `.release-metadata.txt` match the exact Git tag as described in the README.
+1. Open the candidate's `.candidate-metadata.txt`. Compute the candidate DMG's
+   SHA-256 with `shasum -a 256 PATH_TO_CANDIDATE_DMG` and require it to equal
+   `Candidate-SHA256`. Require `Candidate-Tag` and `Candidate-Commit` in the
+   evidence TSV to equal the metadata `Tag` and `Commit`, and require
+   `git rev-parse 'TAG^{commit}'` to print that same commit. The final checksum
+   and release metadata do not exist at this stage.
 2. Open the DMG, confirm it contains only the expected app, and copy
    Automaatkorrektor to `/Applications`.
 3. Launch the installed copy. Observe the expected Gatekeeper flow for a build
@@ -217,3 +224,31 @@ field to the displayed origin.
 4. Confirm release notes claim only TextEdit and standard Safari/Chrome fields;
    do not claim Mail, rich editors, correction, passive monitoring, Windows,
    launch-at-login, or production distribution.
+
+## Finalized release verification
+
+This section is not a prerequisite for any manual evidence row. Run it only
+after the evidence file identifies the candidate and all 35 required checks
+pass. Finalize the already tested candidate without rebuilding it:
+
+```sh
+scripts/finalize-release-dmg.sh \
+  --candidate .release-evidence/candidates/Automaatkorrektor-v0.1.0.dmg \
+  --manual-evidence .release-evidence/manual.tsv
+```
+
+The promoted DMG must be byte-identical to the tested candidate. After
+promotion, verify the final outputs under `.release-evidence/releases/`:
+
+```sh
+shasum -a 256 -c \
+  .release-evidence/releases/Automaatkorrektor-v0.1.0.dmg.sha256
+cat .release-evidence/releases/Automaatkorrektor-v0.1.0.release-metadata.txt
+git rev-parse 'v0.1.0^{commit}'
+```
+
+Require the checksum command to report `OK`. Require final metadata `Tag` and
+`Commit` to match the exact Git tag and resolved commit, and require
+`DMG-SHA256` to equal both the checksum file and the candidate's recorded
+`Candidate-SHA256`. This post-promotion verification does not change or supply
+manual evidence.

@@ -52,6 +52,33 @@ class ReleasePathDocumentationTests(unittest.TestCase):
         self.assertIn("selected text", CHECKLIST)
         self.assertIn("displayed origin", CHECKLIST)
 
+    def test_manual_install_verifies_candidate_before_final_release_outputs_exist(self):
+        install_start = CHECKLIST.index("## Produced DMG installation path")
+        final_start = CHECKLIST.index("## Finalized release verification")
+        install_section = CHECKLIST[install_start:final_start]
+        final_section = CHECKLIST[final_start:]
+
+        self.assertIn(".candidate-metadata.txt", install_section)
+        self.assertIn("Candidate-Tag", install_section)
+        self.assertIn("Candidate-Commit", install_section)
+        self.assertIn("Candidate-SHA256", install_section)
+        self.assertNotIn(".dmg.sha256", install_section)
+        self.assertNotIn(".release-metadata.txt", install_section)
+        self.assertIn("finalize-release-dmg.sh", final_section)
+        self.assertIn("byte-identical", final_section)
+        self.assertIn(".dmg.sha256", final_section)
+        self.assertIn(".release-metadata.txt", final_section)
+
+    def test_readme_orders_candidate_evidence_before_final_output_verification(self):
+        candidate = README.index("scripts/build-release-candidate.sh")
+        evidence = README.index("perform every manual check on that exact DMG")
+        finalize = README.index("scripts/finalize-release-dmg.sh")
+        final_outputs = README.index("Verify the finalized outputs after promotion")
+
+        self.assertLess(candidate, evidence)
+        self.assertLess(evidence, finalize)
+        self.assertLess(finalize, final_outputs)
+
     def test_scope_remains_explicit_and_does_not_claim_correction(self):
         self.assertIn("TextEdit", README)
         self.assertIn("Safari", README)

@@ -143,3 +143,17 @@ SHA-256. It verifies the candidate again without rebuilding or changing its
 bytes, then promotes a byte-identical final DMG, checksum, metadata, and READY
 report into `.release-evidence/releases/`. Neither phase uploads a GitHub
 Release, pushes a tag, or modifies an external service.
+
+Verify the finalized outputs after promotion, not as a prerequisite for the
+manual evidence or finalization:
+
+```sh
+shasum -a 256 -c \
+  .release-evidence/releases/Automaatkorrektor-v0.1.0.dmg.sha256
+cat .release-evidence/releases/Automaatkorrektor-v0.1.0.release-metadata.txt
+git rev-parse 'v0.1.0^{commit}'
+```
+
+The checksum must report `OK`. Final metadata `Tag` and `Commit` must match the
+exact Git tag and resolved commit, and `DMG-SHA256` must equal the checksum and
+the candidate metadata's `Candidate-SHA256`.
