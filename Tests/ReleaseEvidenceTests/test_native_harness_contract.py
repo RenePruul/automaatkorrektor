@@ -70,10 +70,14 @@ class NativeHarnessContractTests(unittest.TestCase):
 
     def test_operator_checklist_separates_production_and_test_policies(self):
         checklist = (REPO / "release/MANUAL-CHECKLIST.md").read_text()
+        normalized_checklist = " ".join(checklist.split())
         self.assertIn("scripts/run-native-ax-harness.sh", checklist)
-        self.assertIn("production Automaatkorrektor", checklist)
-        self.assertIn("must reject", checklist)
-        self.assertIn("remains `PENDING` until", checklist)
+        self.assertIn("Tootmisrakenduse Automaatkorrektor", checklist)
+        self.assertIn(
+            "peab `NativeTextControlHost` hosti tagasi lükkama",
+            normalized_checklist,
+        )
+        self.assertIn("jääb olekusse `PENDING`, kuni", normalized_checklist)
 
 
 if __name__ == "__main__":

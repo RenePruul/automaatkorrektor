@@ -91,7 +91,7 @@ grep -Fq '| PENDING | manual-textedit |' "$report"
 grep -Fq '| PENDING | manual-dmg-install |' "$report"
 grep -Fq '| PENDING | manual-language-check-consent |' "$report"
 grep -Fq '| PENDING | boundary-api-contract |' "$report"
-grep -Fq '**Release decision:** BLOCKED' "$report"
+grep -Fq '**Väljalaskeotsus:** BLOCKED' "$report"
 grep -Fq "$expected_commit" "$report"
 grep -Fq 'Xcode 26.3' "$report"
 grep -Fq 'Safari 18.6' "$report"
@@ -129,7 +129,7 @@ done
 PATH="$fake_bin:$PATH" "$repo_root/scripts/release-gate.sh" \
   --manual-evidence "$complete_manual" --report "$temporary_directory/ready-report.md" \
   >/dev/null
-grep -Fq '**Release decision:** READY' "$temporary_directory/ready-report.md"
+grep -Fq '**Väljalaskeotsus:** READY' "$temporary_directory/ready-report.md"
 test "$(grep -Ec '^\| PASS \|' "$temporary_directory/ready-report.md")" -eq 35
 
 printf '%s\n' 'manual evidence validation tests passed'

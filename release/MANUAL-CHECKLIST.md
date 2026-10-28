@@ -1,13 +1,14 @@
-# macOS v0.1 manual release checklist
+# macOS v0.1 väljalaske käsikontroll
 
-Use only synthetic text and a stub language API. Never paste personal writing,
-passwords, tokens, or the privacy-canary value into the evidence file or report.
+Kasuta ainult sünteetilist teksti ja keeleteenuse teststub'i. Ära kleebi
+isiklikku teksti, paroole, pääsmikke ega privaatsusnäite väärtust tõendifaili
+või raportisse.
 
-First build the candidate with `scripts/build-release-candidate.sh --tag TAG`.
-Copy `release/manual-evidence.example.tsv` outside Git tracking and replace its
-three `Candidate-*` header placeholders with the exact values in the generated
-`.candidate-metadata.txt`. Replace a row's `PENDING` only after performing it
-against that exact candidate, and run:
+Esmalt loo kandidaat käsuga `scripts/build-release-candidate.sh --tag TAG`.
+Kopeeri `release/manual-evidence.example.tsv` väljapoole Giti jälgimist ja
+asenda kolm `Candidate-*` päise kohatäitjat loodud faili
+`.candidate-metadata.txt` täpsete väärtustega. Asenda rea `PENDING` olek alles
+pärast selle kontrollimist täpselt sama kandidaadiga. Seejärel käivita:
 
 ```sh
 scripts/release-gate.sh \
@@ -15,49 +16,49 @@ scripts/release-gate.sh \
   --report .release-evidence/report.md
 ```
 
-The command exits with status 2 until all 35 required rows pass. Do not run
-finalization or expect final release outputs yet. After every row passes, use
-the finalization and final-output verification section at the end of this
-checklist.
+Käsk lõpetab olekukoodiga 2, kuni kõik 35 nõutavat rida on läbitud. Ära
+finaliseeri veel ega eelda lõplike väljalaskefailide olemasolu. Kui kõik read
+on läbitud, kasuta selle juhendi lõpus olevat finaliseerimise ja lõppfailide
+kontrolli jaotist.
 
-## Produced DMG installation path
+## Loodud DMG paigaldustee
 
-Perform this section with the DMG made by `scripts/build-release-candidate.sh`, not an
-app launched from Xcode or DerivedData.
+Tee see kontroll skriptiga `scripts/build-release-candidate.sh` loodud DMG-ga,
+mitte Xcode'ist või DerivedData kaustast käivitatud rakendusega.
 
-1. Open the candidate's `.candidate-metadata.txt`. Compute the candidate DMG's
-   SHA-256 with `shasum -a 256 PATH_TO_CANDIDATE_DMG` and require it to equal
-   `Candidate-SHA256`. Require `Candidate-Tag` and `Candidate-Commit` in the
-   evidence TSV to equal the metadata `Tag` and `Commit`, and require
-   `git rev-parse 'TAG^{commit}'` to print that same commit. The final checksum
-   and release metadata do not exist at this stage.
-2. Open the DMG, confirm it contains only the expected app, and copy
-   Automaatkorrektor to `/Applications`.
-3. Launch the installed copy. Observe the expected Gatekeeper flow for a build
-   that is not Developer ID signed or Apple notarized. Recover only with
-   Control-click → **Open**, or **System Settings → Privacy & Security → Open
-   Anyway**. Never disable Gatekeeper globally.
-4. Grant Accessibility permission to the installed copy. If a prior ad-hoc
-   build has stale permission, remove its Accessibility entry, add the installed
-   copy, enable it, and reopen the app.
-5. Start the local language service separately at `http://127.0.0.1:8000` and
-   complete one explicit check in TextEdit. Confirm the service receives one
-   request and that the app shows the expected verdict.
+1. Ava kandidaadi `.candidate-metadata.txt`. Arvuta kandidaadi DMG SHA-256
+   käsuga `shasum -a 256 KANDIDAADI_DMG_TEE` ja nõua, et see võrduks väärtusega
+   `Candidate-SHA256`. Tõendi-TSV väärtused `Candidate-Tag` ja
+   `Candidate-Commit` peavad võrduma metaandmete väärtustega `Tag` ja `Commit`.
+   Käsk `git rev-parse 'TAG^{commit}'` peab kuvama sama commit'i. Lõplikku
+   kontrollsummat ega väljalaske metaandmeid selles etapis veel pole.
+2. Ava DMG, veendu, et see sisaldab ainult oodatud rakendust, ja kopeeri
+   Automaatkorrektor kausta `/Applications`.
+3. Käivita paigaldatud rakendus. Kontrolli oodatud Gatekeeperi voogu järgu
+   puhul, mis pole Developer ID-ga allkirjastatud ega Apple'i notariseeritud.
+   Ava rakendus ainult Control-klõpsu → **Open** või **System Settings → Privacy
+   & Security → Open Anyway** abil. Ära lülita Gatekeeperit kogu süsteemis välja.
+4. Anna paigaldatud rakendusele Accessibility-luba. Kui varasema ad-hoc-järgu
+   luba on aegunud, eemalda selle Accessibility-kirje, lisa paigaldatud rakendus,
+   luba see ja ava rakendus uuesti.
+5. Käivita kohalik keeleteenus eraldi aadressil `http://127.0.0.1:8000` ja tee
+   TextEditis üks selgelt algatatud kontroll. Veendu, et teenus saab ühe päringu
+   ja rakendus kuvab oodatud otsuse.
 
-Record only the artifact version, tag, OS version, recovery paths exercised,
-and pass/fail outcome. Do not record selected text. This completes
-`manual-dmg-install` and does not upload an artifact or change an external
-service.
+Salvesta ainult artefakti versioon, tägi, operatsioonisüsteemi versioon,
+kasutatud taastamisteed ja tulemus. Ära salvesta valitud teksti. Sellega on
+`manual-dmg-install` täidetud; artefakti ei laadita üles ega muudeta välist
+teenust.
 
-## Offline stub language API
+## Võrguühenduseta keeleteenuse teststub
 
-`tools/language_api_stub.py` is test-only infrastructure. It uses only the
-Python standard library, binds exclusively to `127.0.0.1`, and accepts exactly
-`POST /detect` with `{"text":"..."}`. It never stores or prints request bodies.
-Its event output contains only request count, body byte count, field names, and
-the optional canary-match boolean.
+`tools/language_api_stub.py` on ainult testimiseks mõeldud taristu. See kasutab
+ainult Pythoni standardteeki, kuulab üksnes aadressil `127.0.0.1` ja võtab vastu
+täpselt päringu `POST /detect` sisuga `{"text":"..."}`. Päringukehi ei
+salvestata ega väljastata. Sündmuse väljund sisaldab ainult päringute arvu,
+keha baitide arvu, väljanimetusi ja valikulist privaatsusnäite vaste tõeväärtust.
 
-Start one deterministic verdict at the client's default API address:
+Käivita kliendi vaikimisi aadressil üks kindel otsus:
 
 ```sh
 AUTOMAATKORREKTOR_STUB_PORT=8000 \
@@ -65,101 +66,105 @@ AUTOMAATKORREKTOR_STUB_VERDICT=jah \
 python3 tools/language_api_stub.py
 ```
 
-Restart with `ei` or `ebakindel` for the other verdicts. The following response
-and delay modes exercise recovery behavior:
+Teiste otsuste kontrollimiseks käivita stub uuesti väärtusega `ei` või
+`ebakindel`. Taastumiskäitumist saab kontrollida järgmiste vastuse- ja
+viivitusrežiimidega:
 
 ```sh
-# Client's three-second timeout; cancelled connections are expected.
+# Kliendi kolmesekundiline ajalimiit; ühenduse katkestamine on oodatud.
 AUTOMAATKORREKTOR_STUB_PORT=8000 \
 AUTOMAATKORREKTOR_STUB_DELAY_SECONDS=4 \
 python3 tools/language_api_stub.py
 
-# Unknown verdict / incompatible service.
+# Tundmatu otsus ehk ühildumatu teenus.
 AUTOMAATKORREKTOR_STUB_PORT=8000 \
 AUTOMAATKORREKTOR_STUB_RESPONSE=incompatible \
 python3 tools/language_api_stub.py
 
-# HTTP 503 / unavailable server behavior.
+# HTTP 503 ehk kättesaamatu server.
 AUTOMAATKORREKTOR_STUB_PORT=8000 \
 AUTOMAATKORREKTOR_STUB_RESPONSE=server-error \
 python3 tools/language_api_stub.py
 ```
 
-While it runs, inspect privacy-safe volatile state with:
+Kontrolli töötamise ajal privaatsust hoidvat ajutist olekut käsuga:
 
 ```sh
 curl --fail --silent http://127.0.0.1:8000/_test/status
 ```
 
-The response contains `request_count` and allowlisted metadata, never selected
-text. Stop the fixture with Control-C. Do not redirect fixture output to a file.
+Vastus sisaldab `request_count` väärtust ja lubatud metaandmeid, kuid mitte
+kunagi valitud teksti. Peata stub klahvikombinatsiooniga Control-C. Ära suuna
+stub'i väljundit faili.
 
-## Test-only native Accessibility harness
+## Ainult testimiseks mõeldud Accessibility testirakendused
 
-The production Automaatkorrektor allowlist remains exactly TextEdit, Safari,
-and Chrome. It must reject `NativeTextControlHost`; the host is admitted only
-by the separately compiled test harness policy. Neither test app performs a
-network request or displays, logs, or stores selected text.
+Tootmisrakenduse Automaatkorrektor lubatud rakendused on endiselt ainult
+TextEdit, Safari ja Chrome. Rakendus peab `NativeTextControlHost` hosti tagasi
+lükkama; see host on lubatud ainult eraldi kompileeritud testirakenduse reeglis.
+Kumbki testirakendus ei tee võrgupäringut ega kuva, logi või salvesta valitud
+teksti.
 
-Build and open both properly bundled test apps with the exact operator command:
+Ehita ja ava mõlemad korrektselt pakitud testirakendused täpse käsuga:
 
 ```sh
 scripts/run-native-ax-harness.sh
 ```
 
-1. Grant **AX Integration Harness** Accessibility access in System Settings.
-   Do not use an environment variable or modify production Automaatkorrektor.
-2. For each harness row, click **Arm**, then within five seconds click the
-   matching **Prepare** button in **Native Text Control Host**. The host focuses
-   the control and selects only its synthetic fixture text.
-3. Require metadata-only `PASS` for editable `NSTextField`, `NSSearchField`,
-   and `NSTextView`.
-4. Require metadata-only `PASS` for rejection of read-only, disabled, and
-   secure fields. No language API or stub is involved.
-5. Launch the production Automaatkorrektor separately, select synthetic host
-   text, and confirm the production client rejects the host before any stub
-   request.
+1. Anna rakendusele **AX Integration Harness** süsteemiseadetes
+   Accessibility-luba. Ära kasuta keskkonnamuutujat ega muuda tootmisrakendust.
+2. Iga testirea puhul klõpsa **Arm** ja seejärel viie sekundi jooksul rakenduses
+   **Native Text Control Host** vastavat nuppu **Prepare**. Host fokuseerib
+   juhtelemendi ja valib ainult sünteetilise prooviteksti.
+3. Nõua ainult metaandmetega `PASS` tulemust muudetavale `NSTextField`,
+   `NSSearchField` ja `NSTextView` väljale.
+4. Nõua ainult metaandmetega `PASS` tulemust kirjutuskaitstud, keelatud ja
+   turvalise välja tagasilükkamisele. Keele-API-t ega stub'i ei kasutata.
+5. Käivita tootmisrakendus eraldi, vali hostis sünteetiline tekst ja veendu, et
+   tootmisklient lükkab hosti tagasi enne stub-päringut.
 
-The `integration-native-host` evidence remains `PENDING` until all seven
-outcomes above have been run on the release candidate. Record only app versions,
-the six harness PASS states, production rejection, OS version, and date—never
-fixture text.
+Tõend `integration-native-host` jääb olekusse `PENDING`, kuni kõik seitse
+tulemust on väljalaskekandidaadil kontrollitud. Salvesta ainult rakenduste
+versioonid, kuus testirakenduse `PASS` olekut, tootmisrakenduse tagasilükkamine,
+operatsioonisüsteemi versioon ja kuupäev — mitte kunagi prooviteksti.
 
 ## TextEdit
 
-1. Grant production Automaatkorrektor Accessibility access in System Settings.
-2. In TextEdit, verify an explicit synthetic selection produces each of `jah`,
-   `ei`, and `ebakindel`; an empty selection and a focus change produce no
-   request.
+1. Anna tootmisrakendusele Automaatkorrektor süsteemiseadetes
+   Accessibility-luba.
+2. Kontrolli TextEditis, et sünteetilise teksti selge valik annaks kõik otsused
+   `jah`, `ei` ja `ebakindel`. Tühi valik ja fookuse muutus ei tohi päringut teha.
 
-## Safari and Chrome
+## Safari ja Chrome
 
-1. Open `Tests/AutomaatkorrektorMacOSTests/Fixtures/browser-fields.html` locally
-   in each browser. Do not serve it from the internet.
-2. Verify text, search, and textarea selections produce the stub verdict.
-3. Verify password, read-only, disabled, and contenteditable cases produce no
-   request. Do not count browser chrome such as the address bar as page-field
-   evidence.
+1. Ava fail `Tests/AutomaatkorrektorMacOSTests/Fixtures/browser-fields.html`
+   mõlemas brauseris kohalikult. Ära jaga seda internetist.
+2. Kontrolli, et teksti-, otsingu- ja `textarea`-välja valik annaks stub'i otsuse.
+3. Kontrolli, et parooli-, kirjutuskaitstud, keelatud ja `contenteditable` juht
+   ei teeks päringut. Ära loe brauseri kasutajaliidest, näiteks aadressiriba,
+   lehe tekstivälja tõendiks.
 
-## Permission and interaction
+## Luba ja kasutamine
 
-1. With Accessibility denied, verify the blocked UI and numbered recovery
-   instructions. Confirm no stub request occurs.
-2. Grant access and recheck; verify the green ready state without restarting.
-3. Start a delayed check, revoke access, and verify cancellation without a
-   second request.
-4. Compare the menu action and global shortcut: both must open the popover,
-   show checking, and leave the same verdict or stable error visible.
-5. Verify timeout, unavailable service, and incompatible response UI. Closing
-   the popover during a delayed request must cancel silently.
+1. Keelatud Accessibility-loa korral kontrolli blokeeritud vaadet ja
+   nummerdatud taastamisjuhiseid. Stub-päringut ei tohi tekkida.
+2. Anna luba ja kontrolli uuesti. Roheline valmisolek peab ilmuma rakendust
+   taaskäivitamata.
+3. Alusta viivitusega kontrolli, tühista luba ja veendu, et kontroll katkeb ilma
+   teise päringuta.
+4. Võrdle menüütoimingut ja globaalset kiirklahvi: mõlemad peavad avama
+   hüpikvaate, näitama kontrollimist ning jätma nähtavaks sama otsuse või
+   stabiilse vea.
+5. Kontrolli ajalimiidi, kättesaamatu teenuse ja ühildumatu vastuse vaateid.
+   Hüpikvaate sulgemine viivitusega päringu ajal peab katkestama vaikselt.
 
-## Privacy canary
+## Privaatsusnäide
 
-1. Type a unique value beginning `AUTOMAATKORREKTOR-PRIVACY-CANARY-` into an
-   eligible synthetic field, but do not invoke the check yet. Do not use the
-   clipboard.
-2. Enter the same value without terminal echo and derive only its hash in a
-   volatile environment variable:
+1. Kirjuta sobivale sünteetilisele väljale kordumatu väärtus, mis algab
+   `AUTOMAATKORREKTOR-PRIVACY-CANARY-`, kuid ära käivita veel kontrolli. Ära
+   kasuta lõikelauda.
+2. Sisesta sama väärtus terminali kajata ja arvuta ajutisse keskkonnamuutujasse
+   ainult selle räsi:
 
    ```sh
    IFS= read -r -s canary_value
@@ -168,68 +173,69 @@ fixture text.
    AUTOMAATKORREKTOR_STUB_PORT=8000 python3 tools/language_api_stub.py
    ```
 
-3. Perform exactly one check. Query `/_test/status` and require
-   `request_count: 1` and `canary_match: true`. The fixture compares SHA-256
-   digests and never retains or emits the complete value.
-4. Confirm the complete value appears nowhere in the request URL, headers, app
-   UI, settings, unified log, files, caches, crash reports, history, or
-   generated release report.
-5. Stop the fixture, unset `AUTOMAATKORREKTOR_STUB_CANARY_SHA256`, and record
-   only pass/fail plus a neutral evidence note. Never copy the value or its hash
-   into the TSV or report.
+3. Tee täpselt üks kontroll. Küsi `/_test/status` ja nõua `request_count: 1`
+   ning `canary_match: true`. Stub võrdleb SHA-256 räsisid ega säilita või
+   väljasta täielikku väärtust.
+4. Veendu, et täielik väärtus ei esine päringu URL-is, päistes, rakenduse
+   vaates, seadetes, ühendlogis, failides, vahemäludes, krahhiraportites,
+   ajaloos ega loodud väljalaskeraportis.
+5. Peata stub, eemalda `AUTOMAATKORREKTOR_STUB_CANARY_SHA256` ja salvesta ainult
+   tulemus koos neutraalse tõendimärkusega. Ära kopeeri väärtust või selle räsi
+   TSV-faili või raportisse.
 
-## Language-check consent privacy path
+## Keelekontrolli nõusoleku privaatsustee
 
-Use an operator-controlled, compatible remote HTTPS fixture whose request body
-is never logged or retained. It must expose only a volatile request count,
-received JSON field names, body byte count, and a canary digest-match boolean.
-Do not use a public third-party endpoint. Configure the client with the exact
-fixture origin shown by the consent UI.
+Kasuta operaatori hallatavat ühilduvat HTTPS-kaugfixture'it, mille päringukeha
+ei logita ega säilitata. See tohib näidata ainult ajutist päringute arvu,
+vastuvõetud JSON-väljade nimesid, keha baitide arvu ja privaatsusnäite räsi
+vaste tõeväärtust. Ära kasuta avalikku kolmanda osapoole teenust. Seadista
+klient täpselt nõusolekuvaates näidatud fixture'i origin'iga.
 
-1. Enter a fresh unique synthetic value beginning with the documented canary
-   prefix into an eligible field. Do not use the clipboard, terminal arguments,
-   shell history, a fixture file, or the evidence TSV. Provide its digest to the
-   remote fixture through a no-echo, volatile mechanism equivalent to the local
-   procedure above.
-2. Record the fixture's metadata-only baseline request count. Invoke an explicit
-   check and choose **Refuse**. Require the request count to remain unchanged
-   and confirm no selected text was read or shown by the client.
-3. Invoke a fresh explicit check, confirm that the displayed origin exactly
-   matches the configured HTTPS origin, and choose **Allow**. Require the
-   request count to increase by exactly one, `canary_match` to be true, and the
-   only JSON field name to be `text`. The fixture must not observe a request to
-   any other origin.
-4. Change the configured service to a different HTTPS origin. Require a new
-   consent prompt and no request before a decision. Restore the original
-   service only after recording the metadata-only outcome.
-5. Revoke the saved language-check consent in Settings. Invoke another check,
-   choose **Refuse**, and require the request count to remain unchanged.
-6. Stop the fixture and clear the volatile canary digest. Search the app's
-   visible UI, settings, unified log, generated report, and release output for
-   the complete value; it must appear nowhere. Never put the complete value or
-   its digest in a report, committed fixture, screenshot, or evidence note.
+1. Sisesta sobivale väljale uus kordumatu sünteetiline väärtus, mis algab
+   dokumenteeritud privaatsusnäite prefiksiga. Ära kasuta lõikelauda,
+   terminaliargumente, shelli ajalugu, fixture-faili ega tõendi-TSV-d. Anna räsi
+   kaugfixture'ile kohaliku protseduuriga samaväärsel kajata ja ajutisel viisil.
+2. Salvesta fixture'i ainult metaandmetega päringute algarv. Käivita selge
+   kontroll ja vali **Loobu**. Päringute arv ei tohi muutuda ning klient ei
+   tohi valitud teksti lugeda või kuvada.
+3. Käivita uus kontroll, veendu, et kuvatud origin vastab täpselt seadistatud
+   HTTPS-origin'ile, ja vali **Luba ja kontrolli**. Päringute arv peab suurenema täpselt ühe
+   võrra, `canary_match` peab olema `true` ning ainus JSON-väli peab olema
+   `text`. Fixture ei tohi näha päringut ühelegi teisele origin'ile.
+4. Muuda seadistatud teenus teise HTTPS-origin'i vastu. Nõua uut nõusolekuvaadet
+   ja enne otsust mitte ühtegi päringut. Taasta algne teenus alles pärast ainult
+   metaandmetega tulemuse salvestamist.
+5. Tühista salvestatud keelekontrolli nõusolek seadetes. Käivita uus kontroll,
+   vali **Loobu** ja nõua, et päringute arv ei muutuks.
+6. Peata fixture ja eemalda ajutine privaatsusnäite räsi. Otsi täielikku
+   väärtust rakenduse vaatest, seadetest, ühendlogist, loodud raportist ja
+   väljalaskefailidest; seda ei tohi leiduda. Ära lisa täielikku väärtust või
+   selle räsi raportisse, commit'itud fixture'isse, kuvatõmmisele või
+   tõendimärkusesse.
 
-Record `manual-language-check-consent` using only the displayed origin, request-count
-deltas, tested app version, date, and pass/fail. This procedure verifies that
-refusal sends no remote request and approval sends only the selected `text`
-field to the displayed origin.
+Salvesta `manual-language-check-consent` puhul ainult kuvatud origin,
+päringute arvu muutused, testitud rakenduse versioon, kuupäev ja tulemus. See
+kontroll tõendab, et keeldumine ei saada kaugpäringut ning lubamine saadab
+kuvatud origin'ile ainult valitud välja `text`.
 
-## OS and API boundaries
+## Operatsioonisüsteemi ja API piirid
 
-1. Run the core manual matrix on the current development Mac running macOS 15 or later.
-2. Record both OS versions and Safari/Chrome versions in neutral notes.
-3. Run against a named language API commit. Confirm exactly `POST /detect`, a
-   JSON request with only `text`, and response verdicts `jah`, `ei`, and
-   `ebakindel`. Record the API commit, never request or response content.
-4. Confirm release notes claim only TextEdit and standard Safari/Chrome fields;
-   do not claim Mail, rich editors, correction, passive monitoring, Windows,
-   launch-at-login, or production distribution.
+1. Tee põhiline käsikontroll arendus-Macis, kus töötab macOS 15 või uuem.
+2. Salvesta neutraalsetesse märkustesse operatsioonisüsteemi ning Safari ja
+   Chrome'i versioonid.
+3. Kasuta nimetatud keele-API commit'i. Kinnita täpselt `POST /detect`, ainult
+   välja `text` sisaldav JSON-päring ning vastuse otsused `jah`, `ei` ja
+   `ebakindel`. Salvesta API commit, mitte kunagi päringu või vastuse sisu.
+4. Veendu, et väljalaskemärkmed lubavad ainult TextEditi ja standardseid Safari
+   või Chrome'i välju. Ära luba Maili, rikasteksti redaktoreid, parandamist,
+   passiivset jälgimist, Windowsit, sisselogimisel käivitamist või
+   tootmiskasutuseks levitamist.
 
-## Finalized release verification
+## Finaliseeritud väljalaske kontroll
 
-This section is not a prerequisite for any manual evidence row. Run it only
-after the evidence file identifies the candidate and all 35 required checks
-pass. Finalize the already tested candidate without rebuilding it:
+See jaotis ei ole ühegi käsitõendi rea eeltingimus. Kasuta seda alles siis, kui
+tõendifail nimetab kandidaadi ja kõik 35 nõutavat kontrolli on läbitud.
+Finaliseeri juba testitud kandidaat seda uuesti ehitamata:
 
 ```sh
 scripts/finalize-release-dmg.sh \
@@ -237,8 +243,8 @@ scripts/finalize-release-dmg.sh \
   --manual-evidence .release-evidence/manual.tsv
 ```
 
-The promoted DMG must be byte-identical to the tested candidate. After
-promotion, verify the final outputs under `.release-evidence/releases/`:
+Edutatud DMG peab olema testitud kandidaadiga bait-baidilt identne. Pärast
+edutamist kontrolli lõppfaile kaustas `.release-evidence/releases/`:
 
 ```sh
 shasum -a 256 -c \
@@ -247,8 +253,7 @@ cat .release-evidence/releases/Automaatkorrektor-v0.1.0.release-metadata.txt
 git rev-parse 'v0.1.0^{commit}'
 ```
 
-Require the checksum command to report `OK`. Require final metadata `Tag` and
-`Commit` to match the exact Git tag and resolved commit, and require
-`DMG-SHA256` to equal both the checksum file and the candidate's recorded
-`Candidate-SHA256`. This post-promotion verification does not change or supply
-manual evidence.
+Kontrollsumma käsk peab kuvama `OK`. Lõplike metaandmete `Tag` ja `Commit`
+peavad vastama täpsele Git-tägile ja lahendatud commit'ile. `DMG-SHA256` peab
+võrduma nii kontrollsummafaili kui kandidaadi salvestatud `Candidate-SHA256`
+väärtusega. Väljalaskejärgne kontroll ei muuda ega lisa käsitõendeid.

@@ -1,17 +1,17 @@
-# Candidate-Tag	REPLACE_WITH_CANDIDATE_TAG
-# Candidate-Commit	REPLACE_WITH_CANDIDATE_COMMIT
-# Candidate-SHA256	REPLACE_WITH_CANDIDATE_SHA256
-# id	status	evidence note (metadata only; never selected text)
-integration-native-host	PENDING	Run the test-only bundled AX harness; confirm production rejects its host.
-integration-permission	PENDING	Grant and revoke real Accessibility permission.
-manual-textedit	PENDING	Run the TextEdit matrix.
-manual-safari	PENDING	Run the offline Safari fixture matrix.
-manual-chrome	PENDING	Run the offline Chrome fixture matrix.
-manual-permission-ui	PENDING	Run denied, granted, and revoked permission UI checks.
-manual-menu-shortcut	PENDING	Compare menu and shortcut behavior.
-manual-errors-cancellation	PENDING	Run visible error and cancellation checks.
-manual-privacy-canary	PENDING	Run the volatile synthetic canary procedure.
-manual-supported-os	PENDING	Run the core manual matrix on the current development Mac running macOS 15 or later.
-manual-dmg-install	PENDING	Install from the produced DMG and complete the Gatekeeper, Accessibility, and local-check path.
-manual-language-check-consent	PENDING	Verify decline, grant, origin change, and revocation with privacy-safe synthetic evidence.
-boundary-api-contract	PENDING	Record the tested language API commit.
+# Candidate-Tag	ASENDA_KANDIDAADI_TAGIGA
+# Candidate-Commit	ASENDA_KANDIDAADI_COMMITIGA
+# Candidate-SHA256	ASENDA_KANDIDAADI_SHA256_VÄÄRTUSEGA
+# id	olek	tõendimärkus (ainult metaandmed; mitte kunagi valitud tekst)
+integration-native-host	PENDING	Käivita pakitud AX-testirakendus ja kinnita, et tootmisrakendus lükkab selle hosti tagasi.
+integration-permission	PENDING	Anna ja tühista päris Accessibility-luba.
+manual-textedit	PENDING	Tee TextEditi kontrollmaatriks.
+manual-safari	PENDING	Tee võrguühenduseta Safari fixture'i kontrollmaatriks.
+manual-chrome	PENDING	Tee võrguühenduseta Chrome'i fixture'i kontrollmaatriks.
+manual-permission-ui	PENDING	Kontrolli keelatud, antud ja tühistatud loa vaateid.
+manual-menu-shortcut	PENDING	Võrdle menüütoimingu ja kiirklahvi käitumist.
+manual-errors-cancellation	PENDING	Kontrolli nähtavaid vigu ja katkestamist.
+manual-privacy-canary	PENDING	Tee ajutise sünteetilise privaatsusnäite kontroll.
+manual-supported-os	PENDING	Tee põhikontroll arendus-Macis, kus töötab macOS 15 või uuem.
+manual-dmg-install	PENDING	Paigalda loodud DMG ja kontrolli Gatekeeperi, Accessibility-loa ning kohaliku kontrolli teed.
+manual-language-check-consent	PENDING	Kontrolli privaatsust hoidva sünteetilise tõendiga keeldumist, lubamist, origin'i muutust ja nõusoleku tühistamist.
+boundary-api-contract	PENDING	Salvesta kontrollitud keele-API commit.

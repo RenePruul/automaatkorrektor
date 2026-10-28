@@ -41,12 +41,12 @@ while [ "$#" -gt 0 ]; do
 done
 if [ -n "$manual" ]; then
   decision=${RELEASE_TEST_FINAL_DECISION:-READY}
-  printf '# Evidence\n\n**Release decision:** %s\n\n- Commit: `%s`\n- Result: 35 passed, 0 failed, 0 pending\n' \
+  printf '# Tõendid\n\n**Väljalaskeotsus:** %s\n\n- Commit: `%s`\n- Tulemus: 35 läbitud, 0 ebaõnnestunud, 0 ootel\n' \
     "$decision" "${RELEASE_TEST_REPORT_COMMIT:-0123456789abcdef0123456789abcdef01234567}" > "$report"
   [ "$decision" = READY ]
 else
   failed=${RELEASE_TEST_CANDIDATE_FAILED:-0}
-  printf '# Evidence\n\n**Release decision:** BLOCKED\n\n- Commit: `%s`\n- Result: 24 passed, %s failed, 11 pending\n' \
+  printf '# Tõendid\n\n**Väljalaskeotsus:** BLOCKED\n\n- Commit: `%s`\n- Tulemus: 24 läbitud, %s ebaõnnestunud, 11 ootel\n' \
     "0123456789abcdef0123456789abcdef01234567" "$failed" > "$report"
   exit 2
 fi
@@ -147,7 +147,7 @@ esac
     def test_candidate_rejects_failed_automation(self):
         result = self._build_candidate(RELEASE_TEST_CANDIDATE_FAILED="1")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("automated checks must pass", result.stderr)
+        self.assertIn("automaatkontrollid peavad läbima", result.stderr)
         self.assertNotIn("xcodebuild", self._command_log())
 
     def test_finalization_promotes_the_exact_candidate_bytes(self):
@@ -179,7 +179,7 @@ esac
         self.command_log.write_text("")
         result = self._finalize(evidence)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("candidate bytes changed", result.stderr)
+        self.assertIn("kandidaadi baidid muutusid", result.stderr)
         self.assertNotIn("gate", self._command_log())
 
     def test_evidence_must_bind_exact_candidate(self):
@@ -188,16 +188,16 @@ esac
         self.command_log.write_text("")
         result = self._finalize(evidence)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("does not identify this exact candidate", result.stderr)
+        self.assertIn("ei tuvasta täpselt seda kandidaati", result.stderr)
         self.assertNotIn("gate", self._command_log())
 
     def test_dirty_tree_and_mismatched_tag_are_rejected_before_candidate_gate(self):
         dirty = self._build_candidate(RELEASE_TEST_DIRTY="1")
-        self.assertIn("working tree must be clean", dirty.stderr)
+        self.assertIn("tööpuu peab olema puhas", dirty.stderr)
         self.assertNotIn("gate", self._command_log())
         self.command_log.write_text("")
         mismatch = self._build_candidate(RELEASE_TEST_TAG_COMMIT="f" * 40)
-        self.assertIn("does not point to HEAD", mismatch.stderr)
+        self.assertIn("ei osuta HEAD-ile", mismatch.stderr)
         self.assertNotIn("gate", self._command_log())
 
     def test_generated_release_outputs_are_ignored_by_git(self):

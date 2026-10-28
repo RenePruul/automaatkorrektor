@@ -1,60 +1,62 @@
 # Automaatkorrektor
 
-Automaatkorrektor checks whether text that you explicitly select is Estonian.
-It does not monitor text in the background and does not correct or replace
-text. Every check starts from the menu-bar action or the configured shortcut.
+Automaatkorrektor kontrollib, kas kasutaja selgelt valitud tekst on eesti
+keeles. Rakendus ei jälgi teksti taustal ega paranda ega asenda teksti. Iga
+kontroll algab menüüriba toimingust või seadistatud kiirklahvist.
 
-## Language service
+## Keeleteenus
 
-Automaatkorrektor is a client for a separately running compatible language
-service. The default address is `http://127.0.0.1:8000`, so selected text does
-not leave this Mac. Install the `keele_tuvastaja` project separately and start
-it before using the client, for example:
+Automaatkorrektor on eraldi töötava ühilduva keeleteenuse klient. Vaikimisi
+aadress on `http://127.0.0.1:8000`, seega ei lahku valitud tekst sellest
+Macist. Paigalda projekt `keele_tuvastaja` eraldi ja käivita see enne kliendi
+kasutamist, näiteks:
 
 ```sh
-cd /path/to/keele_tuvastaja
+cd /tee/keele_tuvastaja
 .venv/bin/keele-api
 ```
 
-The client does not install or start Python or the language service. A local
-service must remain bound to the loopback interface; check its availability
-with `curl --fail http://127.0.0.1:8000/health`.
+Klient ei paigalda ega käivita Pythonit ega keeleteenust. Kohalik teenus peab
+kuulama ainult loopback-liidesel. Kontrolli selle kättesaadavust käsuga
+`curl --fail http://127.0.0.1:8000/health`.
 
-Settings also accepts a custom remote HTTPS service. A custom service is
-independently operated and receives the selected text under its operator's
-data-handling terms. Before any selected text is read, the client displays the
-normalized destination and requires origin-specific language-check consent. Declining sends
-nothing. Changing the scheme, host, or effective port requires new consent,
-and saved consent can be revoked in Settings. Use only a service you trust and
-do not select passwords, secrets, or sensitive personal data.
+Seadetes saab kasutada ka enda valitud HTTPS-kaugteenust. Sellisel teenusel on
+iseseisev operaator ning valitud teksti käideldakse tema tingimuste järgi.
+Enne valitud teksti lugemist kuvab klient normaliseeritud sihtkoha ja küsib
+selle origin'i jaoks keelekontrolli nõusolekut. Keeldumisel ei saadeta midagi.
+Skeemi, hosti või tegeliku pordi muutmisel küsitakse uus nõusolek. Salvestatud
+nõusoleku saab seadetes tühistada. Kasuta ainult usaldusväärset teenust ning
+ära vali kontrollimiseks paroole, saladusi või tundlikke isikuandmeid.
 
-## Install the minimal DMG
+## Minimaalse DMG paigaldamine
 
-This version requires macOS 15 or later. This version is not Developer ID signed or Apple notarized, so macOS may ask for confirmation on first launch.
+See versioon vajab macOS 15 või uuemat. Versioon ei ole Developer ID-ga
+allkirjastatud ega Apple'i notariseeritud, mistõttu võib macOS esmakordsel
+avamisel kinnitust küsida.
 
-1. Open the downloaded `.dmg` and drag `Automaatkorrektor.app` to
+1. Ava allalaaditud `.dmg` ja lohista `Automaatkorrektor.app` kausta
    `/Applications`.
-2. Try to open the installed app. If macOS blocks it, Control-click the app,
-   choose **Open**, then confirm **Open**. Alternatively, after the blocked
-   launch, open **System Settings → Privacy & Security** and choose
-   **Open Anyway** for Automaatkorrektor.
-3. Grant Automaatkorrektor access in **System Settings → Privacy & Security →
-   Accessibility** when asked.
-4. Start the separate language service, select text in a supported field, and
-   invoke **Kontrolli valitud teksti** from the menu bar or with the configured
-   shortcut.
+2. Proovi paigaldatud rakendus avada. Kui macOS selle blokeerib, tee rakendusel
+   Control-klõps, vali **Open** ja kinnita uuesti **Open**. Teise võimalusena
+   ava pärast blokeeritud käivitust **System Settings → Privacy & Security**
+   ning vali Automaatkorrektori juures **Open Anyway**.
+3. Anna Automaatkorrektorile küsitud juurdepääs asukohas **System Settings →
+   Privacy & Security → Accessibility**.
+4. Käivita eraldi keeleteenus, vali toetatud väljal tekst ja kasuta menüüribal
+   toimingut **Kontrolli valitud teksti** või seadistatud kiirklahvi.
 
-Do not disable Gatekeeper globally. The minimal release has no automatic
-updater: quit the app and manually replace the old app in `/Applications` with
-the new version. Because an ad-hoc build changes between releases, macOS may
-ask you to grant Accessibility permission again. If checks remain blocked,
-remove the old Automaatkorrektor entry from Accessibility, add the replacement
-app, enable it, and reopen the app.
+Ära lülita Gatekeeperit kogu süsteemis välja. Minimaalsel versioonil puudub
+automaatne uuendaja: sulge rakendus ja asenda kaustas `/Applications` olev vana
+rakendus käsitsi uuega. Kuna ad-hoc-järk muutub iga väljalaskega, võib macOS
+küsida Accessibility-luba uuesti. Kui kontroll on endiselt blokeeritud, eemalda
+vana Automaatkorrektori kirje Accessibility-loendist, lisa uus rakendus, luba
+see ja ava rakendus uuesti.
 
-## Verify a download
+## Allalaaditud faili kontrollimine
 
-Each finalized release contains a versioned DMG, its `.dmg.sha256` file, and a
-`.release-metadata.txt` file. Download all three into one directory and run:
+Iga finaliseeritud väljalase sisaldab versiooniga DMG-d, selle faili
+`.dmg.sha256` ja faili `.release-metadata.txt`. Laadi kõik kolm samasse kausta
+ning käivita:
 
 ```sh
 shasum -a 256 -c Automaatkorrektor-v0.1.0.dmg.sha256
@@ -63,74 +65,76 @@ git fetch --tags
 git rev-parse 'v0.1.0^{commit}'
 ```
 
-The checksum command must report `OK`. The metadata `Tag` must match the
-release tag, its `Commit` must equal the commit printed by `git rev-parse`, and
-its `DMG-SHA256` must equal the checksum. Replace `v0.1.0` with the version you
-downloaded.
+Kontrollsumma käsk peab kuvama `OK`. Metaandmete `Tag` peab vastama väljalaske
+tägile, `Commit` peab võrduma käsu `git rev-parse` väljundiga ja `DMG-SHA256`
+peab võrduma kontrollsummaga. Asenda `v0.1.0` allalaaditud versiooniga.
 
-## macOS v0.1 compatibility
+## macOS v0.1 ühilduvus
 
-The client supports explicit selections in TextEdit and in standard Safari or
-Chrome text, search, and textarea fields when macOS exposes the focused control
-as a standard editable Accessibility text field. It does not claim support for
-other applications or arbitrary browser editors.
+Klient toetab selgelt valitud teksti TextEditis ning Safari või Chrome'i
+standardsetel teksti-, otsingu- ja `textarea`-väljadel, kui macOS esitab
+fookuses oleva juhtelemendi standardse muudetava Accessibility-tekstiväljana.
+Teiste rakenduste või suvaliste brauseriredaktorite tuge ei lubata.
 
-Password fields, web-area or document selections, `contenteditable` surfaces,
-custom controls, and fields that do not pass the closed Accessibility
-eligibility policy are rejected before selected text is read. The client does
-not use the clipboard, traverse application content trees, or fall back to
-private text-marker APIs.
+Parooliväljad, veebiala või dokumendi valikud, `contenteditable`-alad,
+kohandatud juhtelemendid ja suletud Accessibility-sobivusreeglitele mittevastavad
+väljad lükatakse tagasi enne valitud teksti lugemist. Klient ei kasuta
+lõikelauda, ei läbi rakenduse sisupuud ega kasuta varumeetodina privaatseid
+tekstiosuti API-sid.
 
-These compatibility claims do not include background monitoring, automatic
-correction, arbitrary editors, or writing text back into another application.
+Need ühilduvuslubadused ei hõlma taustal jälgimist, automaatset parandamist,
+suvalisi redaktoreid ega teksti teise rakendusse tagasi kirjutamist.
 
-## Release evidence
+## Väljalasketõendid
 
-The v0.1 release gate has exactly 35 required checks. Run the automated checks
-and create a metadata-only report with:
+Versiooni v0.1 väljalaskeväravas on täpselt 35 nõutavat kontrolli. Käivita
+automaatsed kontrollid ja loo ainult metaandmeid sisaldav raport käsuga:
 
 ```sh
 scripts/release-gate.sh
 ```
 
-The gate bounds format and Git checks at 2 minutes, fixture tests at 5 minutes,
-Swift tests at 10 minutes, and each Xcode build at 15 minutes. A timeout fails
-the automated gate and terminates the command's child processes. Maintainers
-may set `RELEASE_GATE_TIMEOUT_SECONDS` to a positive number only when testing
-the watchdog itself; release runs use the documented per-check limits.
+Värav piirab vormindus- ja Git-kontrollid kahe minutiga, fixture-testid viie
+minutiga, Swift-testid kümne minutiga ning iga Xcode build'i 15 minutiga.
+Ajalimiidi ületamine ebaõnnestab automaatkontrolli ja lõpetab käsu alamprotsessid.
+Haldaja võib määrata positiivse `RELEASE_GATE_TIMEOUT_SECONDS` väärtuse ainult
+valvuri enda testimiseks; väljalaskel kasutatakse dokumenteeritud piiranguid.
 
-The command exits with status `2` while any required real-app or OS check is
-pending. Follow [the manual checklist](release/MANUAL-CHECKLIST.md), keep the
-filled evidence TSV in `.release-evidence/`, and pass it back with
-`--manual-evidence`. Selected text and privacy-canary values must never be put
-in the evidence TSV or report.
+Käsk lõpetab olekukoodiga `2`, kuni mõni päris rakenduse või operatsioonisüsteemi
+kontroll on ootel. Järgi [käsikontrolli juhendit](release/MANUAL-CHECKLIST.md),
+hoia täidetud TSV-faili kaustas `.release-evidence/` ja anna see tagasi
+argumendiga `--manual-evidence`. Valitud tekst ja privaatsusnäite väärtus ei
+tohi kunagi sattuda TSV-faili ega raportisse.
 
-Native AppKit control coverage uses two separately bundled, test-only apps.
-Run `scripts/run-native-ax-harness.sh` and follow the checklist. Its harness
-uses the real Accessibility reader with an exact test-host policy, performs no
-networking, and reports metadata-only PASS/FAIL. The production app continues
-to reject that host and supports only its documented three-app allowlist.
+AppKiti juhtelementide kontroll kasutab kaht eraldi pakitud ainult testimiseks
+mõeldud rakendust. Käivita `scripts/run-native-ax-harness.sh` ja järgi juhendit.
+Testirakendus kasutab päris Accessibility-lugejat täpse testhosti reeglistikuga,
+ei kasuta võrku ning raporteerib ainult metaandmetega `PASS`/`FAIL` tulemusi.
+Tootmisrakendus lükkab selle hosti endiselt tagasi ja toetab ainult kolme
+dokumenteeritud rakendust.
 
-The manual matrix uses the dependency-free, loopback-only
-[`tools/language_api_stub.py`](tools/language_api_stub.py) fixture. It provides
-controlled verdict, delay, incompatible-response, server-error, request-count,
-and privacy-canary metadata without storing or logging selected text. It is
-test infrastructure and is not a language detector.
+Käsikontroll kasutab sõltuvusteta ja ainult loopback'il töötavat fixture'it
+[`tools/language_api_stub.py`](tools/language_api_stub.py). See pakub juhitud
+vastuseid, viivitust, ühildumatut vastust, serveriviga, päringute arvu ja
+privaatsusnäite metaandmeid ilma valitud teksti salvestamata või logimata.
+Tegemist on testitaristuga, mitte keeletuvastajaga.
 
-Build a candidate from a clean worktree whose HEAD has the exact release tag.
-Automated checks must pass; manual rows are expected to remain pending:
+Loo kandidaat puhtast tööpuust, mille `HEAD`-il on täpne väljalaske tägi.
+Automaatsed kontrollid peavad läbima; käsitsi täidetavad read jäävad
+ootuspäraselt olekusse `PENDING`:
 
 ```sh
 scripts/build-release-candidate.sh --tag v0.1.0
 ```
 
-The command builds and verifies the ad-hoc-signed app and writes the candidate
-DMG, candidate metadata, and pending evidence report under
-`.release-evidence/candidates/`. It deliberately does not emit a final checksum.
+Käsk ehitab ja kontrollib ad-hoc-allkirjastatud rakenduse ning kirjutab
+kandidaadi DMG, kandidaadi metaandmed ja ootel tõendite raporti kausta
+`.release-evidence/candidates/`. Lõplikku kontrollsummat selles etapis ei looda.
 
-Copy `release/manual-evidence.example.tsv` to `.release-evidence/manual.tsv`.
-Replace its three `Candidate-*` header values from the candidate metadata, then
-perform every manual check on that exact DMG. Finalize only after all rows pass:
+Kopeeri `release/manual-evidence.example.tsv` faili
+`.release-evidence/manual.tsv`. Asenda kolm `Candidate-*` päiseväärtust
+kandidaadi metaandmetega ja tee kõik käsikontrollid täpselt selle DMG-ga.
+Finaliseeri alles pärast kõigi ridade läbimist:
 
 ```sh
 scripts/finalize-release-dmg.sh \
@@ -138,14 +142,14 @@ scripts/finalize-release-dmg.sh \
   --manual-evidence .release-evidence/manual.tsv
 ```
 
-Finalization requires READY evidence bound to the candidate tag, commit, and
-SHA-256. It verifies the candidate again without rebuilding or changing its
-bytes, then promotes a byte-identical final DMG, checksum, metadata, and READY
-report into `.release-evidence/releases/`. Neither phase uploads a GitHub
-Release, pushes a tag, or modifies an external service.
+Finaliseerimine nõuab kandidaadi tägi, commit'i ja SHA-256-ga seotud `READY`
+tõendeid. Kandidaati kontrollitakse uuesti ilma seda ehitamata või selle baite
+muutmata. Seejärel tõstetakse bait-baidilt identne lõplik DMG, kontrollsumma,
+metaandmed ja `READY` raport kausta `.release-evidence/releases/`. Kumbki etapp
+ei laadi GitHub Release'i üles, ei push'i tägi ega muuda välist teenust.
 
-Verify the finalized outputs after promotion, not as a prerequisite for the
-manual evidence or finalization:
+Kontrolli finaliseeritud väljundeid pärast edutamist, mitte käsitõendite või
+finaliseerimise eeltingimusena:
 
 ```sh
 shasum -a 256 -c \
@@ -154,6 +158,6 @@ cat .release-evidence/releases/Automaatkorrektor-v0.1.0.release-metadata.txt
 git rev-parse 'v0.1.0^{commit}'
 ```
 
-The checksum must report `OK`. Final metadata `Tag` and `Commit` must match the
-exact Git tag and resolved commit, and `DMG-SHA256` must equal the checksum and
-the candidate metadata's `Candidate-SHA256`.
+Kontrollsumma peab kuvama `OK`. Lõplike metaandmete `Tag` ja `Commit` peavad
+vastama täpsele Git-tägile ja lahendatud commit'ile. `DMG-SHA256` peab võrduma
+kontrollsumma ning kandidaadi metaandmete `Candidate-SHA256` väärtusega.

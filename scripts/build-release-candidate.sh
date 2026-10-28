@@ -3,7 +3,7 @@ set -eu
 
 usage() {
   printf '%s\n' \
-    'usage: scripts/build-release-candidate.sh --tag TAG [--output-dir PATH]'
+    'kasutus: scripts/build-release-candidate.sh --tag TAG [--output-dir TEE]'
 }
 
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
@@ -36,21 +36,21 @@ done
 [ -n "$release_tag" ] || { usage >&2; exit 64; }
 case "$release_tag" in
   *[!A-Za-z0-9._-]*|'')
-    printf 'invalid release tag: %s\n' "$release_tag" >&2
+    printf 'vigane väljalaske tägi: %s\n' "$release_tag" >&2
     exit 64
     ;;
 esac
 
 cd "$repo_root"
 if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
-  printf '%s\n' 'release refused: working tree must be clean' >&2
+  printf '%s\n' 'väljalaskest keelduti: tööpuu peab olema puhas' >&2
   exit 1
 fi
 
 head_commit=$(git rev-parse HEAD)
 tag_commit=$(git rev-parse -q --verify "refs/tags/$release_tag^{commit}" 2>/dev/null || true)
 if [ -z "$tag_commit" ] || [ "$tag_commit" != "$head_commit" ]; then
-  printf 'release refused: tag %s does not point to HEAD\n' "$release_tag" >&2
+  printf 'väljalaskest keelduti: tägi %s ei osuta HEAD-ile\n' "$release_tag" >&2
   exit 1
 fi
 
@@ -63,7 +63,7 @@ metadata_path="$output_directory/$metadata_name"
 report_path="$output_directory/$report_name"
 for artifact_path in "$dmg_path" "$metadata_path" "$report_path"; do
   if [ -e "$artifact_path" ]; then
-    printf 'release refused: artifact already exists: %s\n' "$artifact_path" >&2
+    printf 'väljalaskest keelduti: artefakt on juba olemas: %s\n' "$artifact_path" >&2
     exit 1
   fi
 done
@@ -85,11 +85,11 @@ set +e
 gate_exit=$?
 set -e
 if [ "$gate_exit" -ne 2 ] || \
-  ! grep -Fq '**Release decision:** BLOCKED' "$temporary_directory/release-evidence.md" || \
-  ! grep -Eq -- '- Result: [0-9]+ passed, 0 failed, [1-9][0-9]* pending' \
+  ! grep -Fq '**Väljalaskeotsus:** BLOCKED' "$temporary_directory/release-evidence.md" || \
+  ! grep -Eq -- '- Tulemus: [0-9]+ läbitud, 0 ebaõnnestunud, [1-9][0-9]* ootel' \
     "$temporary_directory/release-evidence.md"
 then
-  printf '%s\n' 'candidate refused: automated checks must pass with only manual rows pending' >&2
+  printf '%s\n' 'kandidaadist keelduti: automaatkontrollid peavad läbima ja ootel võivad olla ainult käsitsi kontrollitavad read' >&2
   exit 1
 fi
 
@@ -105,7 +105,7 @@ xcodebuild \
 
 app_path="$derived_data/Build/Products/Release/Automaatkorrektor.app"
 [ -d "$app_path" ] || {
-  printf 'release failed: expected app was not built: %s\n' "$app_path" >&2
+  printf 'väljalase ebaõnnestus: oodatud rakendust ei ehitatud: %s\n' "$app_path" >&2
   exit 1
 }
 
@@ -114,7 +114,7 @@ minimum_system_version=$(/usr/bin/plutil -extract LSMinimumSystemVersion raw \
 if ! awk -v version="$minimum_system_version" \
   'BEGIN { exit ! (version ~ /^[0-9]+([.][0-9]+)*$/ && version + 0 >= 15) }'
 then
-  printf 'release failed: app requires macOS %s instead of macOS 15 or later\n' \
+  printf 'väljalase ebaõnnestus: rakendus nõuab macOS %s, mitte macOS 15 või uuemat\n' \
     "$minimum_system_version" >&2
   exit 1
 fi
@@ -123,14 +123,14 @@ codesign --force --deep --sign - "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 signature_details=$(codesign -dv --verbose=4 "$app_path" 2>&1)
 printf '%s\n' "$signature_details" | grep -Fq 'Signature=adhoc' || {
-  printf '%s\n' 'release failed: app does not have an ad-hoc signature' >&2
+  printf '%s\n' 'väljalase ebaõnnestus: rakendusel puudub ad-hoc-allkiri' >&2
   exit 1
 }
 printf '%s\n' "$signature_details" | grep -Fq 'TeamIdentifier=not set' || {
-  printf '%s\n' 'release failed: app unexpectedly has a signing team' >&2
+  printf '%s\n' 'väljalase ebaõnnestus: rakendusel on ootamatult allkirjastamismeeskond' >&2
   exit 1
 }
-printf '%s\n' 'Ad-hoc signature verified (no signing team).'
+printf '%s\n' 'Ad-hoc-allkiri kontrollitud (allkirjastamismeeskond puudub).'
 
 staging_directory="$temporary_directory/staging"
 mkdir -p "$staging_directory"
@@ -148,7 +148,7 @@ mkdir -p "$mount_directory"
 hdiutil attach -readonly -nobrowse -mountpoint "$mount_directory" "$temporary_dmg"
 dmg_is_mounted=true
 [ -d "$mount_directory/Automaatkorrektor.app" ] || {
-  printf '%s\n' 'release failed: DMG does not contain Automaatkorrektor.app' >&2
+  printf '%s\n' 'väljalase ebaõnnestus: DMG ei sisalda rakendust Automaatkorrektor.app' >&2
   exit 1
 }
 codesign --verify --deep --strict --verbose=2 \
@@ -159,7 +159,7 @@ dmg_is_mounted=false
 mkdir -p "$output_directory"
 mv -n "$temporary_dmg" "$dmg_path"
 [ ! -e "$temporary_dmg" ] && [ -f "$dmg_path" ] || {
-  printf 'release failed: could not create %s without overwriting a file\n' \
+  printf 'väljalase ebaõnnestus: faili %s ei saanud luua olemasolevat faili üle kirjutamata\n' \
     "$dmg_path" >&2
   exit 1
 }
@@ -173,6 +173,6 @@ candidate_sha256=$(shasum -a 256 "$dmg_path" | awk '{print $1}')
 } > "$metadata_path"
 cp "$temporary_directory/release-evidence.md" "$report_path"
 
-printf 'Candidate DMG: %s\n' "$dmg_path"
-printf 'Candidate metadata: %s\n' "$metadata_path"
-printf 'Candidate report: %s\n' "$report_path"
+printf 'Kandidaadi DMG: %s\n' "$dmg_path"
+printf 'Kandidaadi metaandmed: %s\n' "$metadata_path"
+printf 'Kandidaadi raport: %s\n' "$report_path"
