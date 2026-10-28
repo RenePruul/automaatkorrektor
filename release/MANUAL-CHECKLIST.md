@@ -145,7 +145,7 @@ fixture text.
 
 ## OS and API boundaries
 
-1. Run the core manual matrix on macOS 14 and on the current development macOS.
+1. Run the core manual matrix on the current development Mac running macOS 15 or later.
 2. Record both OS versions and Safari/Chrome versions in neutral notes.
 3. Run against a named language API commit. Confirm exactly `POST /detect`, a
    JSON request with only `text`, and response verdicts `jah`, `ei`, and

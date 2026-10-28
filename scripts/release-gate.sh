@@ -332,7 +332,7 @@ add_pending manual-permission-ui 'Permission and recovery UI' 'Run missing, gran
 add_pending manual-menu-shortcut 'Menu and shortcut equivalence' 'Run both explicit actions and compare visible outcomes.'
 add_pending manual-errors-cancellation 'Visible failures and cancellation' 'Exercise timeout, unavailable, incompatible, and silent cancellation states.'
 add_pending manual-privacy-canary 'Synthetic privacy canary' 'Run the one-use canary procedure; do not put the canary in this file or report.'
-add_pending manual-supported-os 'macOS 14 and development macOS' 'Run the core manual matrix on macOS 14 and the current development macOS.'
+add_pending manual-supported-os 'macOS 15 or later' 'Run the core manual matrix on the current development Mac running macOS 15 or later.'
 
 # Three release-boundary checks.
 add_pending boundary-api-contract 'Tested language API contract and version' 'Record the tested API repository commit and confirm POST /detect wire compatibility.'

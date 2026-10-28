@@ -8,5 +8,5 @@ manual-permission-ui	PENDING	Run denied, granted, and revoked permission UI chec
 manual-menu-shortcut	PENDING	Compare menu and shortcut behavior.
 manual-errors-cancellation	PENDING	Run visible error and cancellation checks.
 manual-privacy-canary	PENDING	Run the volatile synthetic canary procedure.
-manual-supported-os	PENDING	Run on macOS 14 and the current development macOS.
+manual-supported-os	PENDING	Run the core manual matrix on the current development Mac running macOS 15 or later.
 boundary-api-contract	PENDING	Record the tested language API commit.

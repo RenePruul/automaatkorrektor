@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
   name: "Automaatkorrektor",
-  platforms: [.macOS(.v14)],
+  platforms: [.macOS(.v15)],
   products: [
     .library(name: "AutomaatkorrektorCore", targets: ["AutomaatkorrektorCore"]),
     .executable(name: "Automaatkorrektor", targets: ["AutomaatkorrektorMacOS"]),
