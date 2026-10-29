@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="et">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Automaatkorrektor · Windowsi prototüüp</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111315;
+      --surface: rgba(39, 41, 45, .96);
+      --surface-2: #303338;
+      --surface-3: #24262a;
+      --border: rgba(255, 255, 255, .105);
+      --text: #f5f5f5;
+      --muted: #b7bac0;
+      --accent: #64a9ff;
+      --accent-strong: #1286f3;
+      --green: #51c878;
+      --orange: #f6b94e;
+      --red: #ff6b6b;
+      --shadow: 0 22px 70px rgba(0,0,0,.52), 0 3px 14px rgba(0,0,0,.32);
+      --radius: 9px;
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 880px; min-height: 680px; overflow: hidden; background: var(--bg); color: var(--text); }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .hidden { display: none !important; }
+    .desktop {
+      position: relative; width: 100vw; height: 100vh; min-height: 680px; overflow: hidden;
+      background:
+        radial-gradient(circle at 15% 14%, rgba(21, 119, 199, .34), transparent 28%),
+        radial-gradient(circle at 84% 70%, rgba(37, 70, 137, .28), transparent 35%),
+        linear-gradient(145deg, #112c42 0%, #101a29 45%, #12151d 100%);
+    }
+    .desktop::before {
+      content: ""; position: absolute; width: 470px; height: 470px; left: 50%; top: 47%; transform: translate(-50%, -50%) rotate(17deg);
+      border: 1px solid rgba(255,255,255,.045); border-radius: 42%; box-shadow: inset 0 0 90px rgba(90,160,255,.03);
+    }
+    .prototype-bar {
+      position: absolute; z-index: 20; top: 18px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 8px; padding: 7px 9px 7px 13px;
+      background: rgba(20,22,26,.78); border: 1px solid var(--border); border-radius: 10px; backdrop-filter: blur(18px); box-shadow: 0 8px 30px rgba(0,0,0,.25);
+    }
+    .prototype-label { color: var(--muted); font-size: 12px; margin-right: 3px; }
+    .scenario {
+      border: 0; background: transparent; padding: 6px 9px; border-radius: 6px; font-size: 12px; cursor: pointer; color: var(--muted);
+    }
+    .scenario:hover { background: rgba(255,255,255,.07); color: var(--text); }
+    .scenario.active { background: rgba(100,169,255,.18); color: #bcdcff; }
+    .taskbar {
+      position: absolute; z-index: 8; left: 0; right: 0; bottom: 0; height: 50px;
+      display: flex; align-items: center; justify-content: center; background: rgba(23,25,31,.86); border-top: 1px solid rgba(255,255,255,.08); backdrop-filter: blur(24px);
+    }
+    .task-icons { display: flex; gap: 7px; }
+    .task-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 6px; color: #e9f1ff; }
+    .task-icon.start { background: linear-gradient(90deg, #54aaff 47%, transparent 47% 53%, #54aaff 53%); mask: linear-gradient(#000 0 0); font-size: 0; }
+    .task-icon.start::after { content:""; width: 3px; height: 34px; background: #17191f; transform: rotate(90deg); }
+    .task-icon.fake { background: rgba(255,255,255,.05); font-weight: 700; color: #7fb8ff; }
+    .tray { position: absolute; right: 14px; bottom: 8px; display: flex; align-items: center; gap: 12px; font-size: 12px; color: #e4e5e8; }
+    .tray-logo { width: 28px; height: 28px; border: 0; background: transparent; cursor: pointer; display: grid; place-items:center; border-radius: 5px; }
+    .tray-logo:hover { background: rgba(255,255,255,.08); }
+    .brand-mark { position: relative; width: 18px; height: 18px; color: var(--accent); }
+    .brand-mark::before { content:"A"; position:absolute; inset:0; display:grid; place-items:center; font-size: 13px; font-weight:800; border: 1.7px solid currentColor; border-radius: 5px; }
+    .clock { line-height: 1.15; text-align: right; }
+    .window, .flyout, .palette, .toast {
+      background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); backdrop-filter: blur(22px);
+    }
+    .titlebar { height: 42px; display:flex; align-items:center; justify-content:space-between; padding: 0 13px; border-bottom:1px solid var(--border); user-select:none; }
+    .title { display:flex; align-items:center; gap:9px; font-size: 13px; font-weight:600; }
+    .window-actions { display:flex; height:42px; margin-right:-13px; }
+    .window-actions button { width:44px; border:0; background:transparent; color:var(--muted); cursor:pointer; }
+    .window-actions button:hover { background:rgba(255,255,255,.08); }
+    .window-actions .close:hover { background:#c42b1c; color:white; }
+    .status-icon { width: 38px; height: 38px; display:grid; place-items:center; border-radius:50%; background:rgba(81,200,120,.12); color:var(--green); font-size:20px; flex:none; }
+    .status-icon[data-tone="orange"] { color:var(--orange); background:rgba(246,185,78,.12); }
+    .status-icon[data-tone="red"] { color:var(--red); background:rgba(255,107,107,.12); }
+    .status-icon[data-tone="blue"] { color:var(--accent); background:rgba(100,169,255,.12); }
+    .status-copy h2, .status-copy h3 { margin:0 0 4px; font-size: 15px; }
+    .status-copy p { margin:0; color:var(--muted); font-size:12px; line-height:1.45; }
+    .primary, .secondary, .link-button { cursor:pointer; border-radius:6px; }
+    .primary { border: 1px solid #3c9df5; background: var(--accent-strong); padding: 8px 13px; font-weight:600; }
+    .primary:hover { background:#2698ff; }
+    .secondary { border:1px solid var(--border); background:rgba(255,255,255,.055); padding:8px 13px; }
+    .secondary:hover { background:rgba(255,255,255,.1); }
+    .link-button { border:0; background:transparent; color:var(--accent); padding:5px 0; }
+    .shortcut { padding:2px 6px; border:1px solid var(--border); border-bottom-color:rgba(255,255,255,.2); border-radius:4px; color:var(--muted); font-size:11px; background:rgba(0,0,0,.16); }
+    .menu-row { display:flex; align-items:center; width:100%; gap:10px; padding:10px 13px; border:0; border-top:1px solid var(--border); background:transparent; text-align:left; cursor:pointer; }
+    .menu-row:hover { background:rgba(255,255,255,.06); }
+    .menu-row .row-icon { width:18px; color:var(--muted); text-align:center; }
+    .menu-row .shortcut { margin-left:auto; }
+
+    /* A — tray first */
+    .variant-a .flyout { position:absolute; right:16px; bottom:57px; width:352px; border-radius:8px; overflow:hidden; }
+    .variant-a .flyout-status { display:flex; gap:12px; align-items:flex-start; padding:16px; min-height:82px; }
+    .variant-a .flyout .primary { margin-top:10px; padding:6px 10px; font-size:12px; }
+    .variant-a .desktop-hint { position:absolute; right:382px; bottom:75px; max-width:250px; color:rgba(255,255,255,.63); font-size:13px; text-align:right; line-height:1.45; }
+
+    /* B — shortcut/palette first */
+    .variant-b .palette { position:absolute; width:520px; left:50%; top:47%; transform:translate(-50%,-50%); border-radius:13px; overflow:hidden; }
+    .variant-b .palette-top { display:flex; align-items:center; gap:12px; padding:15px 17px; border-bottom:1px solid var(--border); }
+    .variant-b .palette-top .brand-mark { width:21px; height:21px; }
+    .variant-b .palette-top strong { font-size:14px; }
+    .variant-b .palette-top .shortcut { margin-left:auto; }
+    .variant-b .result { display:flex; gap:15px; align-items:center; padding:25px 22px; min-height:112px; }
+    .variant-b .result .status-icon { width:46px; height:46px; }
+    .variant-b .palette-actions { display:flex; align-items:center; gap:8px; padding:11px 14px; background:rgba(0,0,0,.12); border-top:1px solid var(--border); }
+    .variant-b .palette-actions .service { margin-left:auto; color:var(--muted); font-size:11px; }
+    .variant-b .shortcut-callout { position:absolute; left:50%; top:calc(47% - 155px); transform:translateX(-50%); color:rgba(255,255,255,.66); font-size:13px; }
+
+    /* C — control center */
+    .variant-c .window { position:absolute; width:720px; height:480px; left:50%; top:48%; transform:translate(-50%,-50%); border-radius:9px; overflow:hidden; }
+    .variant-c .window-body { display:grid; grid-template-columns:185px 1fr; height:calc(100% - 42px); }
+    .sidebar { padding:12px 8px; background:rgba(0,0,0,.13); border-right:1px solid var(--border); }
+    .nav-item { width:100%; display:flex; align-items:center; gap:10px; padding:9px 10px; border:0; border-radius:5px; background:transparent; text-align:left; cursor:pointer; }
+    .nav-item.active { background:rgba(100,169,255,.16); }
+    .nav-item:hover { background:rgba(255,255,255,.06); }
+    .main-panel { padding:27px 30px; }
+    .main-panel h1 { margin:0 0 7px; font-size:24px; font-weight:600; }
+    .main-panel > p { margin:0 0 22px; color:var(--muted); font-size:13px; }
+    .hero-card { display:flex; align-items:center; gap:15px; padding:18px; border:1px solid var(--border); border-radius:9px; background:rgba(255,255,255,.035); }
+    .hero-card .primary { margin-left:auto; flex:none; }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    .detail-card { padding:14px; border:1px solid var(--border); border-radius:8px; background:rgba(255,255,255,.025); }
+    .detail-card .eyebrow { color:var(--muted); font-size:11px; margin-bottom:7px; }
+    .detail-card strong { display:block; font-size:13px; margin-bottom:3px; }
+    .detail-card span { color:var(--muted); font-size:11px; }
+    .variant-c .toast { position:absolute; right:18px; bottom:67px; width:330px; border-radius:8px; padding:14px; display:flex; gap:11px; }
+
+    /* Settings and consent */
+    .backdrop { position:absolute; z-index:30; inset:0; background:rgba(0,0,0,.48); display:grid; place-items:center; }
+    .settings-window { width:560px; background:#27292d; border:1px solid rgba(255,255,255,.15); border-radius:9px; box-shadow:var(--shadow); overflow:hidden; }
+    .settings-content { padding:20px 22px 22px; }
+    .settings-content h2 { margin:0 0 5px; font-size:20px; }
+    .settings-content > p { margin:0 0 19px; color:var(--muted); font-size:12px; }
+    .field-group { border-top:1px solid var(--border); padding:16px 0; }
+    .field-group:first-of-type { border-top:0; padding-top:0; }
+    .field-group label.heading { display:block; font-size:13px; font-weight:600; margin-bottom:9px; }
+    .service-options { display:flex; gap:8px; }
+    .service-option { flex:1; border:1px solid var(--border); border-radius:7px; background:rgba(255,255,255,.025); padding:11px; cursor:pointer; text-align:left; }
+    .service-option.active { border-color:var(--accent); background:rgba(100,169,255,.09); }
+    .service-option strong { display:block; font-size:12px; margin-bottom:3px; }
+    .service-option span { color:var(--muted); font-size:11px; }
+    .api-field { width:100%; margin-top:11px; padding:9px 10px; color:var(--text); background:#1c1e21; border:1px solid var(--border); border-radius:5px; direction:ltr; text-align:left; }
+    .field-note { margin:7px 0 0; color:var(--muted); font-size:11px; }
+    .settings-footer { display:flex; justify-content:flex-end; gap:8px; padding:13px 20px; border-top:1px solid var(--border); background:rgba(0,0,0,.12); }
+    .consent-card { width:420px; padding:22px; background:#292b2f; border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); }
+    .consent-card .status-icon { margin-bottom:14px; }
+    .consent-card h2 { margin:0 0 8px; font-size:19px; }
+    .consent-card p { margin:0 0 10px; color:var(--muted); font-size:12px; line-height:1.5; }
+    .consent-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+
+    .variant-switcher {
+      position:absolute; z-index:50; left:50%; bottom:62px; transform:translateX(-50%); display:flex; align-items:center; gap:4px;
+      padding:5px; border:1px solid var(--border); border-radius:999px; background:rgba(18,20,24,.92); box-shadow:0 10px 35px rgba(0,0,0,.35); backdrop-filter:blur(16px);
+    }
+    .variant-switcher button { width:31px; height:31px; border:0; border-radius:50%; background:transparent; cursor:pointer; font-size:12px; }
+    .variant-switcher button:hover { background:rgba(255,255,255,.08); }
+    .variant-switcher .variant-button.active { background:var(--accent-strong); color:white; }
+    .variant-switcher .arrow { color:var(--muted); }
+    .variant-name { position:absolute; z-index:40; left:18px; bottom:66px; max-width:330px; }
+    .variant-name strong { display:block; font-size:14px; margin-bottom:3px; }
+    .variant-name span { color:rgba(255,255,255,.62); font-size:11px; }
+    @media (max-height: 750px) { .variant-switcher { bottom:57px; } .variant-name { display:none; } }
+  </style>
+</head>
+<body>
+  <main class="desktop" id="desktop">
+    <div class="prototype-bar" aria-label="Prototüübi olekud">
+      <span class="prototype-label">Näita olekut</span>
+      <button class="scenario active" data-state="ready">Valmis</button>
+      <button class="scenario" data-state="estonian">Eesti keel</button>
+      <button class="scenario" data-state="foreign">Muu keel</button>
+      <button class="scenario" data-state="uncertain">Ebakindel</button>
+      <button class="scenario" data-state="unsupported">Ei saa lugeda</button>
+      <button class="scenario" data-state="offline">API viga</button>
+    </div>
+
+    <section id="variant-root"></section>
+
+    <div class="taskbar" aria-hidden="true">
+      <div class="task-icons"><div class="task-icon start"></div><div class="task-icon fake">⌕</div><div class="task-icon fake">▱</div></div>
+      <div class="tray">
+        <span>⌃</span><span>⌁</span><span>▰</span>
+        <button class="tray-logo" title="Automaatkorrektor" data-action="open"><span class="brand-mark"></span></button>
+        <span class="clock">14:32<br>30.10.2026</span>
+      </div>
+    </div>
+
+    <div class="variant-name" id="variant-name"></div>
+    <nav class="variant-switcher" aria-label="Vaheta kujundusvarianti">
+      <button class="arrow" data-direction="-1" title="Eelmine variant">←</button>
+      <button class="variant-button" data-variant="A">A</button>
+      <button class="variant-button" data-variant="B">B</button>
+      <button class="variant-button" data-variant="C">C</button>
+      <button class="arrow" data-direction="1" title="Järgmine variant">→</button>
+    </nav>
+  </main>
+
+  <template id="settings-template">
+    <div class="backdrop" data-overlay="settings">
+      <section class="settings-window" role="dialog" aria-modal="true" aria-label="Automaatkorrektori seaded">
+        <div class="titlebar"><span class="title"><span class="brand-mark"></span>Automaatkorrektori seaded</span><div class="window-actions"><button class="close" data-action="close-settings" title="Sulge">×</button></div></div>
+        <div class="settings-content">
+          <h2>Keelekontrolli seaded</h2>
+          <p>Vali, kus keelt tuvastatakse, ja määra globaalne kiirklahv.</p>
+          <div class="field-group">
+            <label class="heading">Keeleteenus</label>
+            <div class="service-options">
+              <button class="service-option active" data-service="local"><strong>Kohalik teenus</strong><span>Tekst jääb sellesse arvutisse</span></button>
+              <button class="service-option" data-service="remote"><strong>Kaugteenus</strong><span>Tekst saadetakse HTTPS-i kaudu</span></button>
+            </div>
+            <input class="api-field hidden" id="api-address" value="https://keel.example.ee" aria-label="Keele-API aadress">
+            <p class="field-note" id="service-note">Aadress: http://127.0.0.1:8000</p>
+          </div>
+          <div class="field-group">
+            <label class="heading" for="shortcut-field">Globaalne kiirklahv</label>
+            <input class="api-field" id="shortcut-field" value="Ctrl + Alt + E" readonly>
+            <p class="field-note">Töötab teistes rakendustes, kui Automaatkorrektor töötab taustal.</p>
+          </div>
+        </div>
+        <div class="settings-footer"><button class="secondary" data-action="close-settings">Loobu</button><button class="primary" data-action="save-settings">Salvesta</button></div>
+      </section>
+    </div>
+  </template>
+
+  <template id="consent-template">
+    <div class="backdrop" data-overlay="consent">
+      <section class="consent-card" role="alertdialog" aria-modal="true">
+        <div class="status-icon" data-tone="orange">↗</div>
+        <h2>Kas lubad teksti saata kaugteenusele?</h2>
+        <p>Valitud tekst saadetakse aadressile <strong id="consent-origin">keel.example.ee</strong>, et tuvastada selle keel.</p>
+        <p>Automaatkorrektor ei saada teksti enne, kui annad loa. Loa saad hiljem seadetes tühistada.</p>
+        <div class="consent-actions"><button class="secondary" data-action="decline-consent">Loobu</button><button class="primary" data-action="grant-consent">Luba</button></div>
+      </section>
+    </div>
+  </template>
+
+  <script>
+    const variants = ["A", "B", "C"];
+    const descriptions = {
+      A: ["Tray-keskne", "Oleku ja toimingute kompaktne kodu system tray kohal."],
+      B: ["Kiirklahvi-keskne", "Tulemus ilmub töövoo keskele ja kaob pärast kontrolli."],
+      C: ["Juhtpaneel", "Püsiv aken hoiab teenuse oleku ja seaded alati nähtaval."],
+    };
+    const states = {
+      ready: { symbol:"✓", tone:"green", title:"Automaatkorrektor on valmis", detail:"Vali tekst ja vajuta Ctrl + Alt + E.", action:"Kontrolli valitud teksti" },
+      checking: { symbol:"…", tone:"blue", title:"Kontrollin keelt…", detail:"Valitud tekst saadeti keeleteenusele.", action:"Kontrollin…" },
+      estonian: { symbol:"✓", tone:"green", title:"Tekst on eesti keeles", detail:"Keeletuvastus leidis piisavalt tugeva eesti keele vaste.", action:"Kontrolli uuesti" },
+      foreign: { symbol:"×", tone:"red", title:"Tekst ei ole eesti keeles", detail:"Keeletuvastus leidis, et valitud tekst on muus keeles.", action:"Kontrolli uuesti" },
+      uncertain: { symbol:"?", tone:"orange", title:"Keelt ei saa kindlalt määrata", detail:"Tekst on liiga lühike või tulemus jäi ebakindlaks.", action:"Kontrolli uuesti" },
+      unsupported: { symbol:"!", tone:"orange", title:"Valitud teksti ei saa lugeda", detail:"See tekstiväli ei ole toetatud. Proovi Notepadis muudetavat teksti.", action:"Proovi uuesti" },
+      offline: { symbol:"!", tone:"red", title:"Keeleteenus ei vasta", detail:"Kontrolli API aadressi või proovi mõne hetke pärast uuesti.", action:"Proovi uuesti" },
+    };
+    let currentVariant = new URLSearchParams(location.search).get("variant")?.toUpperCase();
+    if (!variants.includes(currentVariant)) currentVariant = "A";
+    let currentState = "ready";
+    let service = "local";
+
+    const root = document.querySelector("#variant-root");
+    const desktop = document.querySelector("#desktop");
+    const stateContent = () => states[currentState];
+    const statusMarkup = (level = "h2") => {
+      const state = stateContent();
+      return `<div class="status-icon" data-tone="${state.tone}">${state.symbol}</div><div class="status-copy"><${level}>${state.title}</${level}><p>${state.detail}</p></div>`;
+    };
+
+    function variantA() {
+      return `<div class="desktop-hint">Klõpsa tray-ikooni või kasuta kiirklahvi. Rakenduse põhiaken ei pea jääma avatuks.</div>
+        <section class="flyout" aria-label="Automaatkorrektori menüü">
+          <div class="flyout-status">${statusMarkup("h2")}</div>
+          ${currentState === "offline" ? '<div style="padding:0 16px 14px"><button class="primary" data-action="check">Proovi uuesti</button></div>' : ""}
+          <button class="menu-row" data-action="check"><span class="row-icon">▶</span><span>Kontrolli valitud teksti</span><span class="shortcut">Ctrl Alt E</span></button>
+          <button class="menu-row" data-action="settings"><span class="row-icon">⚙</span><span>Seaded</span></button>
+          <button class="menu-row"><span class="row-icon">⏻</span><span>Välju</span></button>
+        </section>`;
+    }
+    function variantB() {
+      return `<div class="shortcut-callout">Vali tekst ja vajuta <span class="shortcut">Ctrl + Alt + E</span></div>
+        <section class="palette" aria-label="Keelekontrolli tulemus">
+          <div class="palette-top"><span class="brand-mark"></span><strong>Automaatkorrektor</strong><span class="shortcut">Ctrl Alt E</span></div>
+          <div class="result">${statusMarkup("h2")}</div>
+          <div class="palette-actions"><button class="primary" data-action="check">${stateContent().action}</button><button class="secondary" data-action="settings">Seaded</button><span class="service">${service === "local" ? "Kohalik teenus" : "Kaugteenus"}</span></div>
+        </section>`;
+    }
+    function variantC() {
+      return `<section class="window" aria-label="Automaatkorrektor">
+          <div class="titlebar"><span class="title"><span class="brand-mark"></span>Automaatkorrektor</span><div class="window-actions"><button>—</button><button>□</button><button class="close">×</button></div></div>
+          <div class="window-body">
+            <aside class="sidebar"><button class="nav-item active">⌂ <span>Avaleht</span></button><button class="nav-item" data-action="settings">⚙ <span>Seaded</span></button><button class="nav-item">ⓘ <span>Teave</span></button></aside>
+            <div class="main-panel"><h1>Keelekontroll</h1><p>Kontrolli aktiivses rakenduses valitud teksti keelt.</p>
+              <div class="hero-card">${statusMarkup("h2")}<button class="primary" data-action="check">Kontrolli</button></div>
+              <div class="detail-grid"><div class="detail-card"><div class="eyebrow">KIIRKLAHV</div><strong>Ctrl + Alt + E</strong><span>Töötab kogu Windowsis</span></div><div class="detail-card"><div class="eyebrow">KEELETEENUS</div><strong>${service === "local" ? "Kohalik" : "Kaugteenus"}</strong><span>${service === "local" ? "127.0.0.1:8000" : "HTTPS · luba antud"}</span></div></div>
+            </div>
+          </div>
+        </section>
+        ${currentState !== "ready" ? `<aside class="toast">${statusMarkup("h3")}</aside>` : ""}`;
+    }
+
+    function render() {
+      desktop.className = `desktop variant-${currentVariant.toLowerCase()}`;
+      root.innerHTML = ({ A:variantA, B:variantB, C:variantC })[currentVariant]();
+      document.querySelectorAll(".variant-button").forEach(button => button.classList.toggle("active", button.dataset.variant === currentVariant));
+      document.querySelectorAll(".scenario").forEach(button => button.classList.toggle("active", button.dataset.state === currentState));
+      const [name, copy] = descriptions[currentVariant];
+      document.querySelector("#variant-name").innerHTML = `<strong>Variant ${currentVariant} · ${name}</strong><span>${copy}</span>`;
+    }
+
+    function setVariant(next) {
+      currentVariant = next;
+      const url = new URL(location.href); url.searchParams.set("variant", next); history.replaceState({}, "", url);
+      render();
+    }
+    function moveVariant(direction) {
+      const index = variants.indexOf(currentVariant);
+      setVariant(variants[(index + direction + variants.length) % variants.length]);
+    }
+    function runCheck() {
+      currentState = "checking"; render();
+      setTimeout(() => { currentState = "estonian"; render(); }, 700);
+    }
+    function openSettings() {
+      const template = document.querySelector("#settings-template");
+      desktop.append(template.content.cloneNode(true));
+      syncSettings();
+      document.querySelector("#api-address")?.focus();
+    }
+    function syncSettings() {
+      document.querySelectorAll(".service-option").forEach(option => option.classList.toggle("active", option.dataset.service === service));
+      document.querySelector("#api-address")?.classList.toggle("hidden", service !== "remote");
+      const note = document.querySelector("#service-note");
+      if (note) note.textContent = service === "local" ? "Aadress: http://127.0.0.1:8000" : "Luba küsitakse enne esimest teksti saatmist.";
+    }
+    function closeOverlays() { document.querySelectorAll(".backdrop").forEach(item => item.remove()); }
+    function requestConsent() {
+      document.querySelector('[data-overlay="settings"]')?.remove();
+      const template = document.querySelector("#consent-template");
+      desktop.append(template.content.cloneNode(true));
+      const input = document.querySelector("#api-address");
+      try { document.querySelector("#consent-origin").textContent = new URL(input?.value || "https://keel.example.ee").host; } catch {}
+    }
+
+    document.addEventListener("click", event => {
+      const variant = event.target.closest("[data-variant]")?.dataset.variant;
+      if (variant) return setVariant(variant);
+      const direction = Number(event.target.closest("[data-direction]")?.dataset.direction);
+      if (direction) return moveVariant(direction);
+      const scenario = event.target.closest("[data-state]")?.dataset.state;
+      if (scenario) { currentState = scenario; return render(); }
+      const serviceChoice = event.target.closest("[data-service]")?.dataset.service;
+      if (serviceChoice) { service = serviceChoice; return syncSettings(); }
+      const action = event.target.closest("[data-action]")?.dataset.action;
+      if (action === "check") runCheck();
+      if (action === "settings") openSettings();
+      if (action === "close-settings" || action === "decline-consent") closeOverlays();
+      if (action === "save-settings") service === "remote" ? requestConsent() : (closeOverlays(), render());
+      if (action === "grant-consent") { closeOverlays(); render(); }
+      if (action === "open" && currentVariant !== "A") setVariant("A");
+    });
+    document.addEventListener("keydown", event => {
+      if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
+      if (event.key === "ArrowLeft") moveVariant(-1);
+      if (event.key === "ArrowRight") moveVariant(1);
+      if (event.key === "Escape") closeOverlays();
+    });
+    render();
+  </script>
+</body>
+</html>
