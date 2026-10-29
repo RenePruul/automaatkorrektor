@@ -76,11 +76,6 @@ Käivita automaatsed kontrollid puhtas Giti tööpuus:
 scripts/release-gate.sh
 ```
 
-Värav piirab vormindus- ja Git-kontrollid kahe minutiga, fixture-testid viie
-minutiga, Swift-testid kümne minutiga ning iga Xcode build'i 15 minutiga.
-Ajalimiidi ületamine ebaõnnestab automaatkontrolli ja lõpetab käsu alamprotsessid.
-Haldaja võib määrata positiivse `RELEASE_GATE_TIMEOUT_SECONDS` väärtuse ainult
-valvuri enda testimiseks; väljalaskel kasutatakse dokumenteeritud piiranguid.
 Eduka kontrolli lõpus kuvatakse `Kõik automaatkontrollid läbitud.`
 
 Seejärel järgi [käsikontrolli juhendit](release/MANUAL-CHECKLIST.md). See on
@@ -94,10 +89,10 @@ ei kasuta võrku ning raporteerib ainult metaandmetega `PASS`/`FAIL` tulemusi.
 Tootmisrakendus lükkab selle hosti endiselt tagasi ja toetab ainult kolme
 dokumenteeritud rakendust.
 
-Käsikontroll kasutab sõltuvusteta ja ainult loopback'il töötavat fixture'it
+Käsikontroll kasutab sõltuvusteta ja ainult loopback'il töötavat testserverit
 [`tools/language_api_stub.py`](tools/language_api_stub.py). See pakub juhitud
-vastuseid, viivitust, ühildumatut vastust, serveriviga, päringute arvu ja
-privaatsusnäite metaandmeid ilma valitud teksti salvestamata või logimata.
+vastuseid, viivitust ja päringute arvu ilma valitud teksti salvestamata või
+logimata.
 Tegemist on testitaristuga, mitte keeletuvastajaga.
 
 Loo puhtast tööpuust versioonisildile vastav DMG. Silt peab osutama täpselt

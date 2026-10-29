@@ -31,6 +31,7 @@ python3 tools/language_api_stub.py
 ```
 
 Vajaduse korral käivita teenus uuesti väärtusega `ei` või `ebakindel`.
+Viivituse testimiseks lisa näiteks `AUTOMAATKORREKTOR_STUB_DELAY_SECONDS=3`.
 API-vea kontrollimiseks kasuta vale API-aadressi või peata testteenus.
 
 ## Kontrollnimekiri
