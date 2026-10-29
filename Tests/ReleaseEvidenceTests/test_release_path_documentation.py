@@ -6,9 +6,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 README = (REPOSITORY_ROOT / "README.md").read_text()
 NORMALIZED_README = " ".join(README.split())
 CHECKLIST = (REPOSITORY_ROOT / "release" / "MANUAL-CHECKLIST.md").read_text()
-EVIDENCE_TEMPLATE = (
-    REPOSITORY_ROOT / "release" / "manual-evidence.example.tsv"
-).read_text()
+PUBLIC_INSTRUCTIONS = README + CHECKLIST
 
 
 class ReleasePathDocumentationTests(unittest.TestCase):
@@ -26,74 +24,67 @@ class ReleasePathDocumentationTests(unittest.TestCase):
         )
         self.assertIn("Control-klõps", README)
         self.assertIn("Open Anyway", README)
-        self.assertNotIn("spctl --master-disable", README + CHECKLIST)
-        self.assertNotIn("xattr -d com.apple.quarantine", README + CHECKLIST)
+        self.assertNotIn("spctl --master-disable", PUBLIC_INSTRUCTIONS)
+        self.assertNotIn("xattr -d com.apple.quarantine", PUBLIC_INSTRUCTIONS)
 
-    def test_update_and_integrity_steps_are_documented(self):
-        self.assertIn("käsitsi", README.lower())
-        self.assertIn("Accessibility-luba uuesti", README)
-        self.assertNotIn(".dmg.sha256", README)
-        self.assertIn("release-metadata.txt", README)
-        self.assertIn("git rev-parse", README)
-        self.assertIn("build-release-candidate.sh", README)
-        self.assertIn("finalize-release-dmg.sh", README)
-        self.assertIn("ilma seda ehitamata või selle baite muutmata", NORMALIZED_README)
-        self.assertIn(".release-evidence/releases/", README)
+    def test_simple_release_path_is_documented(self):
+        self.assertIn("scripts/release-gate.sh", README)
+        self.assertIn("scripts/build-release-dmg.sh --tag v0.1.0", README)
+        self.assertIn(
+            ".release-evidence/releases/Automaatkorrektor-v0.1.0.dmg", README
+        )
+        self.assertIn("release/MANUAL-CHECKLIST.md", README)
+        self.assertIn("GitHub", README)
+        self.assertIn("versioonisildile", README)
 
-    def test_manual_evidence_covers_dmg_and_remote_privacy_paths(self):
-        self.assertIn("manual-dmg-install", EVIDENCE_TEMPLATE)
-        self.assertIn("manual-language-check-consent", EVIDENCE_TEMPLATE)
-        self.assertIn("# Candidate-Tag", EVIDENCE_TEMPLATE)
-        self.assertIn("# Candidate-Commit", EVIDENCE_TEMPLATE)
-        self.assertNotIn("# Candidate-SHA256", EVIDENCE_TEMPLATE)
-        self.assertIn("päringute arv", CHECKLIST.lower())
-        self.assertIn("Loobu", CHECKLIST)
-        self.assertIn("Luba ja kontrolli", CHECKLIST)
-        self.assertIn("valitud teksti", CHECKLIST)
-        self.assertIn("kuvatud origin", CHECKLIST)
+    def test_formal_evidence_flow_is_not_documented(self):
+        forbidden = [
+            "manual.tsv",
+            "manual-evidence",
+            "candidate-metadata",
+            "build-release-candidate",
+            "finalize-release-dmg",
+            "release-metadata",
+            "`READY`",
+            "`BLOCKED`",
+            "`PENDING`",
+        ]
+        for value in forbidden:
+            self.assertNotIn(value, PUBLIC_INSTRUCTIONS)
 
-    def test_manual_install_verifies_candidate_before_final_release_outputs_exist(self):
-        install_start = CHECKLIST.index("## Loodud DMG paigaldustee")
-        final_start = CHECKLIST.index("## Finaliseeritud väljalaske kontroll")
-        install_section = CHECKLIST[install_start:final_start]
-        final_section = CHECKLIST[final_start:]
-
-        self.assertIn(".candidate-metadata.txt", install_section)
-        self.assertIn("Candidate-Tag", install_section)
-        self.assertIn("Candidate-Commit", install_section)
-        self.assertNotIn("Candidate-SHA256", install_section)
-        self.assertNotIn(".dmg.sha256", install_section)
-        self.assertNotIn(".release-metadata.txt", install_section)
-        self.assertIn("finalize-release-dmg.sh", final_section)
-        self.assertIn("bait-baidilt identne", final_section)
-        self.assertNotIn(".dmg.sha256", final_section)
-        self.assertIn(".release-metadata.txt", final_section)
-
-    def test_readme_orders_candidate_evidence_before_final_output_verification(self):
-        candidate = README.index("scripts/build-release-candidate.sh")
-        evidence = README.index("tee kõik käsikontrollid täpselt selle DMG-ga")
-        finalize = README.index("scripts/finalize-release-dmg.sh")
-        final_outputs = README.index("Kontrolli finaliseeritud väljundeid pärast edutamist")
-
-        self.assertLess(candidate, evidence)
-        self.assertLess(evidence, finalize)
-        self.assertLess(finalize, final_outputs)
+    def test_manual_checklist_covers_supported_paths(self):
+        for value in [
+            "TextEdit",
+            "Safari",
+            "Chrome",
+            "Accessibility",
+            "Menüüriba",
+            "kiirklahv",
+            "Proovi uuesti",
+            "DMG",
+            "Käivita kontroll",
+            "Valmista ette",
+            "Loobu",
+            "Luba ja kontrolli",
+        ]:
+            self.assertIn(value, CHECKLIST)
 
     def test_scope_remains_explicit_and_does_not_claim_correction(self):
         self.assertIn("TextEdit", README)
         self.assertIn("Safari", README)
         self.assertIn("Chrome", README)
         self.assertIn("ei jälgi teksti taustal", README)
-        self.assertIn("ei jälgi teksti taustal ega paranda ega asenda teksti", NORMALIZED_README)
+        self.assertIn(
+            "ei jälgi teksti taustal ega paranda ega asenda teksti",
+            NORMALIZED_README,
+        )
 
     def test_public_instruction_headings_are_estonian(self):
-        public_instructions = README + CHECKLIST + EVIDENCE_TEMPLATE
         self.assertIn("## Minimaalse DMG paigaldamine", README)
-        self.assertIn("## Väljalasketõendid", README)
-        self.assertIn("# macOS v0.1 väljalaske käsikontroll", CHECKLIST)
-        self.assertNotIn("## Install the minimal DMG", public_instructions)
-        self.assertNotIn("## Release evidence", public_instructions)
-        self.assertNotIn("# macOS v0.1 manual release checklist", public_instructions)
+        self.assertIn("## Väljalaske loomine", README)
+        self.assertIn("# macOS-i väljalaske käsikontroll", CHECKLIST)
+        self.assertNotIn("## Install the minimal DMG", PUBLIC_INSTRUCTIONS)
+        self.assertNotIn("## Release evidence", PUBLIC_INSTRUCTIONS)
 
 
 if __name__ == "__main__":

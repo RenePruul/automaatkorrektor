@@ -65,77 +65,26 @@ esac
 EOF
 
 chmod +x "$fake_bin"/*
-expected_commit=0123456789abcdef0123456789abcdef01234567
-
-report="$temporary_directory/report.md"
+gate_output="$temporary_directory/gate-output.log"
 set +e
 PATH="$fake_bin:$PATH" \
   RELEASE_GATE_SKIP_EXECUTION=0 \
-  "$repo_root/scripts/release-gate.sh" --report "$report"
+  "$repo_root/scripts/release-gate.sh" >"$gate_output" 2>&1
 exit_code=$?
 set -e
 
-if [ "$exit_code" -ne 2 ]; then
-  printf 'expected blocked exit code 2, got %s\n' "$exit_code" >&2
+if [ "$exit_code" -ne 0 ]; then
+  printf 'oodati edukat olekukoodi 0, saadi %s\n' "$exit_code" >&2
+  cat "$gate_output" >&2
   exit 1
 fi
 
-test "$(grep -Ec '^\| (PASS|FAIL|PENDING) \|' "$report")" -eq 35
-grep -Fq '| PASS | core-eligibility |' "$report"
-grep -Fq '| PASS | language-check-consent-decline |' "$report"
-grep -Fq '| PASS | language-check-consent-grant |' "$report"
-grep -Fq '| PASS | language-check-consent-origin-change |' "$report"
-grep -Fq '| PASS | language-check-consent-revocation |' "$report"
-grep -Fq '| PENDING | integration-native-host |' "$report"
-grep -Fq '| PENDING | manual-textedit |' "$report"
-grep -Fq '| PENDING | manual-dmg-install |' "$report"
-grep -Fq '| PENDING | manual-language-check-consent |' "$report"
-grep -Fq '| PENDING | boundary-api-contract |' "$report"
-grep -Fq '**Väljalaskeotsus:** BLOCKED' "$report"
-grep -Fq "$expected_commit" "$report"
-grep -Fq 'Xcode 26.3' "$report"
-grep -Fq 'Safari 18.6' "$report"
-grep -Fq 'Chrome 141.0' "$report"
+grep -Fq 'Kõik automaatkontrollid läbitud.' "$gate_output"
+grep -Fq '==> Xcode päris AX-testirakenduste build' "$gate_output"
 
-if grep -Fq 'AUTOMAATKORREKTOR-PRIVACY-CANARY-' "$report"; then
-  printf 'report contains the private canary prefix\n' >&2
-  exit 1
-fi
-
-printf '%s\n' 'release gate contract tests passed'
-
-invalid_manual="$temporary_directory/invalid-manual.tsv"
-printf 'manual-textedit\tPASS\t\n' > "$invalid_manual"
-set +e
-PATH="$fake_bin:$PATH" "$repo_root/scripts/release-gate.sh" \
-  --manual-evidence "$invalid_manual" --report "$temporary_directory/invalid-report.md" \
-  >/dev/null 2>&1
-invalid_exit_code=$?
-set -e
-test "$invalid_exit_code" -eq 64
-
-complete_manual="$temporary_directory/complete-manual.tsv"
-for evidence_id in \
-  integration-native-host integration-permission manual-textedit manual-safari \
-  manual-chrome manual-permission-ui manual-menu-shortcut \
-  manual-errors-cancellation manual-privacy-canary manual-supported-os \
-  manual-dmg-install manual-language-check-consent \
-  boundary-api-contract
-do
-  printf '%s\tPASS\tVerified with synthetic fixtures; metadata recorded externally.\n' \
-    "$evidence_id" >> "$complete_manual"
-done
-
-PATH="$fake_bin:$PATH" "$repo_root/scripts/release-gate.sh" \
-  --manual-evidence "$complete_manual" --report "$temporary_directory/ready-report.md" \
-  >/dev/null
-grep -Fq '**Väljalaskeotsus:** READY' "$temporary_directory/ready-report.md"
-test "$(grep -Ec '^\| PASS \|' "$temporary_directory/ready-report.md")" -eq 35
-
-printf '%s\n' 'manual evidence validation tests passed'
+printf '%s\n' 'väljalaskevärava automaatkontrollide lepingutestid läbitud'
 
 timeout_log="$temporary_directory/timeout-commands.log"
-timeout_report="$temporary_directory/timeout-report.md"
 child_pid_file="$temporary_directory/hanging-child.pid"
 started_at=$(date +%s)
 set +e
@@ -145,13 +94,13 @@ PATH="$fake_bin:$PATH" \
   RELEASE_GATE_TIMEOUT_SECONDS=1 \
   RELEASE_GATE_KILL_GRACE_SECONDS=0 \
   RELEASE_GATE_COMMAND_LOG_PATH="$timeout_log" \
-  "$repo_root/scripts/release-gate.sh" --report "$timeout_report" \
+  "$repo_root/scripts/release-gate.sh" \
   >/dev/null 2>&1
 timeout_exit_code=$?
 set -e
 elapsed_seconds=$(($(date +%s) - started_at))
 
-test "$timeout_exit_code" -eq 2
+test "$timeout_exit_code" -eq 1
 test "$elapsed_seconds" -lt 5
 grep -Fq 'AJALIMIIT: range Swift-vormindus ületas 1s; protsessipuu lõpetatakse.' "$timeout_log"
 grep -Fq 'FAIL: range Swift-vormindus (ajalimiit 1s)' "$timeout_log"
@@ -198,7 +147,6 @@ run_signal_cleanup_case() {
   case_directory="$temporary_directory/signal-$signal_name"
   signal_tmp="$case_directory/tmp"
   signal_output="$case_directory/output.log"
-  signal_report="$case_directory/report.md"
   signal_child_pid_file="$case_directory/hanging-child.pid"
   mkdir -p "$signal_tmp"
 
@@ -209,7 +157,7 @@ run_signal_cleanup_case() {
     RELEASE_GATE_TEST_CHILD_PID_FILE="$signal_child_pid_file" \
     RELEASE_GATE_TIMEOUT_SECONDS=30 \
     RELEASE_GATE_KILL_GRACE_SECONDS=0 \
-    "$repo_root/scripts/release-gate.sh" --report "$signal_report" \
+    "$repo_root/scripts/release-gate.sh" \
     >"$signal_output" 2>&1 &
   gate_pid=$!
   set +m
@@ -234,7 +182,6 @@ run_signal_cleanup_case() {
   for tracked_process_id in $tracked_process_ids; do
     assert_process_stopped "$tracked_process_id"
   done
-  test ! -e "$signal_report"
   if grep -Fq '==> Giti tühimärgid' "$signal_output"; then
     printf 'väljalaskevärav jätkas pärast signaali %s\n' "$signal_name" >&2
     exit 1

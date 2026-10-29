@@ -79,7 +79,8 @@ class NativeHarnessContractTests(unittest.TestCase):
             "peab `NativeTextControlHost` hosti tagasi lükkama",
             normalized_checklist,
         )
-        self.assertIn("jääb olekusse `PENDING`, kuni", normalized_checklist)
+        self.assertIn("Tulemus peab olema `PASS`", normalized_checklist)
+        self.assertNotIn("`PENDING`", normalized_checklist)
 
 
 if __name__ == "__main__":

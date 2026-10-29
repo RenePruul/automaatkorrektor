@@ -3,12 +3,12 @@ set -eu
 
 usage() {
   printf '%s\n' \
-    'kasutus: scripts/build-release-candidate.sh --tag TAG [--output-dir TEE]'
+    'kasutus: scripts/build-release-dmg.sh --tag TAG [--output-dir TEE]'
 }
 
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 release_tag=''
-output_directory="$repo_root/.release-evidence/candidates"
+output_directory="$repo_root/.release-evidence/releases"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -56,17 +56,11 @@ fi
 
 artifact_base="Automaatkorrektor-$release_tag"
 dmg_name="$artifact_base.dmg"
-metadata_name="$artifact_base.candidate-metadata.txt"
-report_name="$artifact_base.candidate-report.md"
 dmg_path="$output_directory/$dmg_name"
-metadata_path="$output_directory/$metadata_name"
-report_path="$output_directory/$report_name"
-for artifact_path in "$dmg_path" "$metadata_path" "$report_path"; do
-  if [ -e "$artifact_path" ]; then
-    printf 'väljalaskest keelduti: artefakt on juba olemas: %s\n' "$artifact_path" >&2
-    exit 1
-  fi
-done
+[ ! -e "$dmg_path" ] || {
+  printf 'väljalaskest keelduti: DMG on juba olemas: %s\n' "$dmg_path" >&2
+  exit 1
+}
 
 temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/automaatkorrektor-release.XXXXXX")
 mount_directory="$temporary_directory/mount"
@@ -79,19 +73,7 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-set +e
-"$repo_root/scripts/release-gate.sh" \
-  --report "$temporary_directory/release-evidence.md"
-gate_exit=$?
-set -e
-if [ "$gate_exit" -ne 2 ] || \
-  ! grep -Fq '**Väljalaskeotsus:** BLOCKED' "$temporary_directory/release-evidence.md" || \
-  ! grep -Eq -- '- Tulemus: [0-9]+ läbitud, 0 ebaõnnestunud, [1-9][0-9]* ootel' \
-    "$temporary_directory/release-evidence.md"
-then
-  printf '%s\n' 'kandidaadist keelduti: automaatkontrollid peavad läbima ja ootel võivad olla ainult käsitsi kontrollitavad read' >&2
-  exit 1
-fi
+"$repo_root/scripts/release-gate.sh"
 
 derived_data="$temporary_directory/DerivedData"
 xcodebuild \
@@ -164,13 +146,4 @@ mv -n "$temporary_dmg" "$dmg_path"
   exit 1
 }
 
-{
-  printf 'Format-Version: 1\n'
-  printf 'Tag: %s\n' "$release_tag"
-  printf 'Commit: %s\n' "$head_commit"
-} > "$metadata_path"
-cp "$temporary_directory/release-evidence.md" "$report_path"
-
-printf 'Kandidaadi DMG: %s\n' "$dmg_path"
-printf 'Kandidaadi metaandmed: %s\n' "$metadata_path"
-printf 'Kandidaadi raport: %s\n' "$report_path"
+printf 'DMG valmis: %s\n' "$dmg_path"

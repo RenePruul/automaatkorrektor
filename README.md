@@ -52,20 +52,6 @@ küsida Accessibility-luba uuesti. Kui kontroll on endiselt blokeeritud, eemalda
 vana Automaatkorrektori kirje Accessibility-loendist, lisa uus rakendus, luba
 see ja ava rakendus uuesti.
 
-## Väljalaske metaandmete kontrollimine
-
-Iga finaliseeritud väljalase sisaldab versiooniga DMG-d ja faili
-`.release-metadata.txt`. Laadi mõlemad samasse kausta ning käivita:
-
-```sh
-cat Automaatkorrektor-v0.1.0.release-metadata.txt
-git fetch --tags
-git rev-parse 'v0.1.0^{commit}'
-```
-
-Metaandmete `Tag` peab vastama väljalaske tägile ja `Commit` peab võrduma käsu
-`git rev-parse` väljundiga. Asenda `v0.1.0` allalaaditud versiooniga.
-
 ## macOS v0.1 ühilduvus
 
 Klient toetab selgelt valitud teksti TextEditis ning Safari või Chrome'i
@@ -82,10 +68,9 @@ tekstiosuti API-sid.
 Need ühilduvuslubadused ei hõlma taustal jälgimist, automaatset parandamist,
 suvalisi redaktoreid ega teksti teise rakendusse tagasi kirjutamist.
 
-## Väljalasketõendid
+## Väljalaske loomine
 
-Versiooni v0.1 väljalaskeväravas on täpselt 35 nõutavat kontrolli. Käivita
-automaatsed kontrollid ja loo ainult metaandmeid sisaldav raport käsuga:
+Käivita automaatsed kontrollid puhtas Giti tööpuus:
 
 ```sh
 scripts/release-gate.sh
@@ -96,12 +81,11 @@ minutiga, Swift-testid kümne minutiga ning iga Xcode build'i 15 minutiga.
 Ajalimiidi ületamine ebaõnnestab automaatkontrolli ja lõpetab käsu alamprotsessid.
 Haldaja võib määrata positiivse `RELEASE_GATE_TIMEOUT_SECONDS` väärtuse ainult
 valvuri enda testimiseks; väljalaskel kasutatakse dokumenteeritud piiranguid.
+Eduka kontrolli lõpus kuvatakse `Kõik automaatkontrollid läbitud.`
 
-Käsk lõpetab olekukoodiga `2`, kuni mõni päris rakenduse või operatsioonisüsteemi
-kontroll on ootel. Järgi [käsikontrolli juhendit](release/MANUAL-CHECKLIST.md),
-hoia täidetud TSV-faili kaustas `.release-evidence/` ja anna see tagasi
-argumendiga `--manual-evidence`. Valitud tekst ja privaatsusnäite väärtus ei
-tohi kunagi sattuda TSV-faili ega raportisse.
+Seejärel järgi [käsikontrolli juhendit](release/MANUAL-CHECKLIST.md). See on
+praktiline kontrollnimekiri, mitte eraldi tõendifail: tulemust ei pea TSV-sse
+ega raportisse salvestama.
 
 AppKiti juhtelementide kontroll kasutab kaht eraldi pakitud ainult testimiseks
 mõeldud rakendust. Käivita `scripts/run-native-ax-harness.sh` ja järgi juhendit.
@@ -116,42 +100,20 @@ vastuseid, viivitust, ühildumatut vastust, serveriviga, päringute arvu ja
 privaatsusnäite metaandmeid ilma valitud teksti salvestamata või logimata.
 Tegemist on testitaristuga, mitte keeletuvastajaga.
 
-Loo kandidaat puhtast tööpuust, mille `HEAD`-il on täpne väljalaske tägi.
-Automaatsed kontrollid peavad läbima; käsitsi täidetavad read jäävad
-ootuspäraselt olekusse `PENDING`:
+Loo puhtast tööpuust versioonisildile vastav DMG. Silt peab osutama täpselt
+praegusele `HEAD` commit'ile. Kui sobivat silti veel pole, loo see enne DMG-d:
 
 ```sh
-scripts/build-release-candidate.sh --tag v0.1.0
+git status
+git tag v0.1.0
+scripts/build-release-dmg.sh --tag v0.1.0
 ```
 
-Käsk ehitab ja kontrollib ad-hoc-allkirjastatud rakenduse ning kirjutab
-kandidaadi DMG, kandidaadi metaandmed ja ootel tõendite raporti kausta
-`.release-evidence/candidates/`.
-
-Kopeeri `release/manual-evidence.example.tsv` faili
-`.release-evidence/manual.tsv`. Asenda kaks `Candidate-*` päiseväärtust
-kandidaadi metaandmetega ja tee kõik käsikontrollid täpselt selle DMG-ga.
-Finaliseeri alles pärast kõigi ridade läbimist:
+Valmis fail asub siin:
 
 ```sh
-scripts/finalize-release-dmg.sh \
-  --candidate .release-evidence/candidates/Automaatkorrektor-v0.1.0.dmg \
-  --manual-evidence .release-evidence/manual.tsv
+.release-evidence/releases/Automaatkorrektor-v0.1.0.dmg
 ```
 
-Finaliseerimine nõuab kandidaadi tägi ja commit'iga seotud `READY` tõendeid.
-Kandidaati kontrollitakse uuesti ilma seda ehitamata või selle baite muutmata.
-Seejärel tõstetakse bait-baidilt identne lõplik DMG, metaandmed ja `READY`
-raport kausta `.release-evidence/releases/`. Kumbki etapp ei laadi GitHub
-Release'i üles, ei push'i tägi ega muuda välist teenust.
-
-Kontrolli finaliseeritud väljundeid pärast edutamist, mitte käsitõendite või
-finaliseerimise eeltingimusena:
-
-```sh
-cat .release-evidence/releases/Automaatkorrektor-v0.1.0.release-metadata.txt
-git rev-parse 'v0.1.0^{commit}'
-```
-
-Lõplike metaandmete `Tag` ja `Commit` peavad vastama täpsele Git-tägile ja
-lahendatud commit'ile.
+Loo GitHubis samale versioonisildile Release ja lisa sellele DMG käsitsi.
+Skript ei push'i silti ega laadi faili GitHubi üles.
