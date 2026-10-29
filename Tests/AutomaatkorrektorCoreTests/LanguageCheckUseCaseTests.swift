@@ -4,6 +4,29 @@ import Testing
 
 @Suite("Language service endpoint")
 struct LanguageServiceEndpointTests {
+  @Test("default HTTPS port is omitted from the user-facing origin")
+  func defaultHTTPSPortIsNotDisplayed() throws {
+    let implicitPort = try LanguageServiceEndpoint(
+      validating: "https://language.example.ee"
+    )
+    let explicitDefaultPort = try LanguageServiceEndpoint(
+      validating: "https://language.example.ee:443"
+    )
+    let customPort = try LanguageServiceEndpoint(
+      validating: "https://language.example.ee:8443"
+    )
+
+    #expect(implicitPort.languageCheckConsentOrigin?.displayValue == "https://language.example.ee")
+    #expect(
+      explicitDefaultPort.languageCheckConsentOrigin?.displayValue
+        == "https://language.example.ee"
+    )
+    #expect(
+      customPort.languageCheckConsentOrigin?.displayValue
+        == "https://language.example.ee:8443"
+    )
+  }
+
   @Test("every full 127/8 IPv4 literal is local")
   func fullIPv4LoopbackRangeIsLocal() throws {
     let endpoint = try LanguageServiceEndpoint(validating: "http://127.0.0.2:8000")

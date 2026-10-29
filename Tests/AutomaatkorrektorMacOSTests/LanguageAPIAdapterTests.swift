@@ -259,6 +259,26 @@ struct LanguageServiceEndpointSettingsTests {
     #expect(settings.validationMessage != nil)
   }
 
+  @Test("local service action replaces remote and incomplete drafts")
+  func restoresLocalService() {
+    let storage = MemoryAPISettingsStorage()
+    let settings = APISettingsStore(storage: storage)
+
+    settings.updateBaseURL("https://language.example.ee")
+    #expect(settings.draftEndpoint?.languageCheckConsentOrigin != nil)
+
+    settings.updateBaseURL("")
+    #expect(settings.draftEndpoint == nil)
+
+    settings.useLocalService()
+
+    #expect(settings.endpoint == .default)
+    #expect(settings.draftEndpoint == .default)
+    #expect(settings.draftBaseURL == "http://127.0.0.1:8000")
+    #expect(settings.validationMessage == nil)
+    #expect(storage.string(forKey: APISettingsStore.storageKey) == "http://127.0.0.1:8000")
+  }
+
   @Test("an invalid persisted value recovers to and persists the default")
   func recoversStoredValue() {
     let storage = MemoryAPISettingsStorage(values: [

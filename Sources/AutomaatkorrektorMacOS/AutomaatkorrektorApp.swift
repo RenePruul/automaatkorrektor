@@ -15,7 +15,40 @@ final class AutomaatkorrektorApp: NSObject, NSApplicationDelegate {
     let application = NSApplication.shared
     let delegate = AutomaatkorrektorApp()
     application.delegate = delegate
+    installMainMenu(on: application)
     application.run()
+  }
+
+  private static func installMainMenu(on application: NSApplication) {
+    let mainMenu = NSMenu()
+
+    let applicationMenuItem = NSMenuItem(title: "Automaatkorrektor", action: nil, keyEquivalent: "")
+    let applicationMenu = NSMenu(title: "Automaatkorrektor")
+    applicationMenu.addItem(
+      withTitle: "Välju Automaatkorrektorist",
+      action: #selector(NSApplication.terminate(_:)),
+      keyEquivalent: "q"
+    )
+    applicationMenuItem.submenu = applicationMenu
+    mainMenu.addItem(applicationMenuItem)
+
+    let editMenuItem = NSMenuItem(title: "Redigeerimine", action: nil, keyEquivalent: "")
+    let editMenu = NSMenu(title: "Redigeerimine")
+    editMenu.addItem(withTitle: "Võta tagasi", action: Selector(("undo:")), keyEquivalent: "z")
+    editMenu.addItem(withTitle: "Tee uuesti", action: Selector(("redo:")), keyEquivalent: "Z")
+    editMenu.addItem(.separator())
+    editMenu.addItem(withTitle: "Lõika", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+    editMenu.addItem(withTitle: "Kopeeri", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+    editMenu.addItem(withTitle: "Kleebi", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+    editMenu.addItem(
+      withTitle: "Vali kõik",
+      action: #selector(NSText.selectAll(_:)),
+      keyEquivalent: "a"
+    )
+    editMenuItem.submenu = editMenu
+    mainMenu.addItem(editMenuItem)
+
+    application.mainMenu = mainMenu
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {

@@ -56,8 +56,16 @@ final class APISettingsStore: ObservableObject {
       validationMessage = nil
       storage.set(validated.transportBaseURL, forKey: Self.storageKey)
     } catch {
-      validationMessage = "Kasuta HTTPS-aadressi. HTTP on lubatud ainult kohalikule teenusele."
+      validationMessage = "Aadress ei ole veel täielik või toetatud."
     }
+  }
+
+  var draftEndpoint: LanguageServiceEndpoint? {
+    try? LanguageServiceEndpoint(validating: draftBaseURL)
+  }
+
+  func useLocalService() {
+    updateBaseURL(LanguageServiceEndpoint.default.transportBaseURL)
   }
 
   func currentConfiguration() -> LanguageCheckConfiguration {

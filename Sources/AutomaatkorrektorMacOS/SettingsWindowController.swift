@@ -7,68 +7,118 @@ struct APISettingsView<Shortcut: GlobalShortcutControlling>: View {
   @ObservedObject var languageCheckConsent: LanguageCheckConsentStore
 
   var body: some View {
-    Form {
-      VStack(alignment: .leading, spacing: 6) {
-        TextField(
-          "Keele-API aadress",
-          text: Binding(
-            get: { settings.draftBaseURL },
-            set: { settings.updateBaseURL($0) }
+    VStack(alignment: .leading, spacing: 16) {
+      GroupBox("Keeleteenus") {
+        VStack(alignment: .leading, spacing: 10) {
+          Text("API-aadress")
+            .font(.subheadline.weight(.semibold))
+
+          TextField(
+            "",
+            text: Binding(
+              get: { settings.draftBaseURL },
+              set: { updateBaseURL($0) }
+            ),
+            prompt: Text("https://keel.example.ee")
           )
-        )
-        .textFieldStyle(.roundedBorder)
+          .labelsHidden()
+          .frame(maxWidth: .infinity)
+          .textFieldStyle(.roundedBorder)
+          .multilineTextAlignment(.leading)
+          .environment(\.layoutDirection, .leftToRight)
+          .disableAutocorrection(true)
 
-        if let message = settings.validationMessage {
-          Text(message)
-            .font(.caption)
-            .foregroundStyle(.red)
+          Text(
+            "Kaugteenus kasutab HTTPS-i. Kohalik vaikimisi aadress on http://127.0.0.1:8000."
+          )
+          .font(.caption)
+          .foregroundStyle(.secondary)
+
+          serviceStatus
         }
-
-        servicePrivacyStatus
+        .padding(.vertical, 4)
       }
-      VStack(alignment: .leading, spacing: 6) {
-        GlobalShortcutRecorder(controller: shortcut)
 
-        if let message = shortcut.registrationMessage {
-          Text(message)
-            .font(.caption)
-            .foregroundStyle(.red)
+      GroupBox("Kiirklahv") {
+        VStack(alignment: .leading, spacing: 8) {
+          GlobalShortcutRecorder(controller: shortcut)
+
+          if let message = shortcut.registrationMessage {
+            Text(message)
+              .font(.caption)
+              .foregroundStyle(.red)
+          }
         }
+        .padding(.vertical, 4)
       }
     }
-    .formStyle(.grouped)
-    .padding(16)
-    .frame(width: 460, height: 300)
+    .padding(20)
+    .frame(width: 500, height: 360, alignment: .top)
     .preferredColorScheme(.dark)
   }
 
   @ViewBuilder
-  private var servicePrivacyStatus: some View {
-    switch languageCheckConsent.status(for: settings.endpoint) {
-    case .local:
-      Label("Kohalik teenus — tekst ei lahku sellest Macist", systemImage: "laptopcomputer")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-    case .origin(let origin, let hasConsent):
-      VStack(alignment: .leading, spacing: 5) {
-        Label("Kaugteenus: \(origin.displayValue)", systemImage: "network")
+  private var serviceStatus: some View {
+    if let draftEndpoint = settings.draftEndpoint {
+      switch languageCheckConsent.status(for: draftEndpoint) {
+      case .local:
+        Label("Kohalik teenus — tekst jääb sellesse Maci", systemImage: "laptopcomputer")
           .font(.caption)
-        Text(
-          hasConsent
-            ? "Sellele teenusele on teksti saatmine lubatud."
-            : "Sellele teenusele ei ole teksti saatmine lubatud. Luba küsitakse kontrollimisel."
+          .foregroundStyle(.secondary)
+      case .origin(let origin, let hasConsent):
+        VStack(alignment: .leading, spacing: 6) {
+          Label("Kaugteenus: \(origin.displayValue)", systemImage: "network")
+            .font(.caption)
+          Text(
+            hasConsent
+              ? "Teksti saatmine sellele teenusele on lubatud."
+              : "Luba küsitakse enne esimest teksti saatmist."
+          )
+          .font(.caption)
+          .foregroundStyle(.secondary)
+
+          HStack(spacing: 12) {
+            if hasConsent {
+              Button("Tühista luba") {
+                languageCheckConsent.revokeConsent()
+              }
+              .buttonStyle(.link)
+            }
+
+            Button("Kasuta kohalikku teenust") {
+              useLocalService()
+            }
+            .buttonStyle(.link)
+          }
+        }
+      }
+    } else {
+      VStack(alignment: .leading, spacing: 6) {
+        Label(
+          settings.validationMessage ?? "Sisesta täielik API-aadress.",
+          systemImage: "info.circle"
         )
         .font(.caption)
         .foregroundStyle(.secondary)
 
-        if hasConsent {
-          Button("Tühista kaugteenuse luba") {
-            languageCheckConsent.revokeConsent()
-          }
-          .buttonStyle(.link)
+        Button("Kasuta kohalikku teenust") {
+          useLocalService()
         }
+        .buttonStyle(.link)
       }
     }
+  }
+
+  private func updateBaseURL(_ value: String) {
+    settings.updateBaseURL(value)
+    if settings.draftEndpoint?.languageCheckConsentOrigin == nil {
+      languageCheckConsent.revokeConsent()
+    }
+  }
+
+  private func useLocalService() {
+    settings.useLocalService()
+    languageCheckConsent.revokeConsent()
   }
 }
 
@@ -92,7 +142,7 @@ final class SettingsWindowController {
     window.title = "Automaatkorrektori seaded"
     window.styleMask = [.titled, .closable]
     window.isReleasedWhenClosed = false
-    window.setContentSize(NSSize(width: 460, height: 300))
+    window.setContentSize(NSSize(width: 500, height: 360))
     window.center()
   }
 

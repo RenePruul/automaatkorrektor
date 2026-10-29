@@ -113,13 +113,17 @@ struct LanguageCheckPopover<Shortcut: GlobalShortcutControlling>: View {
       Text(consent.explanation)
         .font(.caption)
 
+      Text(consent.effect)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
       Text(consent.warning)
         .font(.caption)
         .foregroundStyle(.secondary)
 
       HStack(spacing: 8) {
-        Button("Luba ja kontrolli") {
-          Task { await model.grantLanguageCheckConsent() }
+        Button("Luba") {
+          model.grantLanguageCheckConsent()
         }
         .buttonStyle(.borderedProminent)
 

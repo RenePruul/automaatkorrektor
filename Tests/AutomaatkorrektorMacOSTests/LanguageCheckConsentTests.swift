@@ -60,8 +60,8 @@ struct LanguageCheckConsentTests {
     }
   }
 
-  @Test("granting displayed consent starts exactly one fresh check")
-  func grantingConsentStartsFreshCheck() async {
+  @Test("granting displayed consent stores permission without sending text")
+  func grantingConsentDoesNotCheck() async {
     let consent = LanguageCheckConsentStore(
       persistence: MemoryLanguageCheckConsentPersistence()
     )
@@ -75,11 +75,11 @@ struct LanguageCheckConsentTests {
     #expect(await reader.readCount == 0)
     #expect(await detector.requestCount == 0)
 
-    await model.grantLanguageCheckConsent()
+    model.grantLanguageCheckConsent()
 
-    #expect(model.state == .verdict(.estonian))
-    #expect(await reader.readCount == 1)
-    #expect(await detector.requestCount == 1)
+    #expect(model.state == .waiting)
+    #expect(await reader.readCount == 0)
+    #expect(await detector.requestCount == 0)
     #expect(consent.hasConsent(for: origin))
   }
 
@@ -116,6 +116,7 @@ struct LanguageCheckConsentTests {
     let presentation = model.languageCheckConsentPresentation
     #expect(presentation?.origin == endpoint.languageCheckConsentOrigin)
     #expect(presentation?.explanation.contains("language.example.ee") == true)
+    #expect(presentation?.effect.contains("ei saadeta") == true)
     #expect(presentation?.warning.contains("paroole") == true)
     #expect(presentation?.warning.contains("tundlikke isikuandmeid") == true)
   }

@@ -31,6 +31,8 @@ struct LanguageCheckConsentPresentation: Sendable, Equatable {
     "Valitud tekst saadetakse teenuse \(origin.displayValue) operaatorile."
   }
 
+  let effect = "Luba salvestatakse. Teksti ei saadeta enne järgmist eraldi kontrolli."
+
   let warning =
     "Kasuta ainult usaldusväärset teenust. Ära saada paroole, saladusi ega tundlikke isikuandmeid."
 }
@@ -169,11 +171,10 @@ final class LanguageCheckViewModel: ObservableObject {
     pendingConsentOrigin.map(LanguageCheckConsentPresentation.init(origin:))
   }
 
-  func grantLanguageCheckConsent() async {
+  func grantLanguageCheckConsent() {
     guard let origin = pendingConsentOrigin, let languageCheckConsent else { return }
     languageCheckConsent.grantConsent(for: origin)
     state = .waiting
-    await check()
   }
 
   func declineLanguageCheckConsent() {

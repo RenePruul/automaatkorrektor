@@ -21,6 +21,9 @@ public struct LanguageServiceOrigin: Sendable, Equatable, Hashable {
 
   public var displayValue: String {
     let formattedHost = host.contains(":") ? "[\(host)]" : host
+    if (scheme == "https" && port == 443) || (scheme == "http" && port == 80) {
+      return "\(scheme)://\(formattedHost)"
+    }
     return "\(scheme)://\(formattedHost):\(port)"
   }
 }
