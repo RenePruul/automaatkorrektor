@@ -164,12 +164,10 @@ mv -n "$temporary_dmg" "$dmg_path"
   exit 1
 }
 
-candidate_sha256=$(shasum -a 256 "$dmg_path" | awk '{print $1}')
 {
   printf 'Format-Version: 1\n'
   printf 'Tag: %s\n' "$release_tag"
   printf 'Commit: %s\n' "$head_commit"
-  printf 'Candidate-SHA256: %s\n' "$candidate_sha256"
 } > "$metadata_path"
 cp "$temporary_directory/release-evidence.md" "$report_path"
 

@@ -32,7 +32,7 @@ class ReleasePathDocumentationTests(unittest.TestCase):
     def test_update_and_integrity_steps_are_documented(self):
         self.assertIn("käsitsi", README.lower())
         self.assertIn("Accessibility-luba uuesti", README)
-        self.assertIn("shasum -a 256 -c", README)
+        self.assertNotIn(".dmg.sha256", README)
         self.assertIn("release-metadata.txt", README)
         self.assertIn("git rev-parse", README)
         self.assertIn("build-release-candidate.sh", README)
@@ -45,7 +45,7 @@ class ReleasePathDocumentationTests(unittest.TestCase):
         self.assertIn("manual-language-check-consent", EVIDENCE_TEMPLATE)
         self.assertIn("# Candidate-Tag", EVIDENCE_TEMPLATE)
         self.assertIn("# Candidate-Commit", EVIDENCE_TEMPLATE)
-        self.assertIn("# Candidate-SHA256", EVIDENCE_TEMPLATE)
+        self.assertNotIn("# Candidate-SHA256", EVIDENCE_TEMPLATE)
         self.assertIn("päringute arv", CHECKLIST.lower())
         self.assertIn("Loobu", CHECKLIST)
         self.assertIn("Luba ja kontrolli", CHECKLIST)
@@ -61,12 +61,12 @@ class ReleasePathDocumentationTests(unittest.TestCase):
         self.assertIn(".candidate-metadata.txt", install_section)
         self.assertIn("Candidate-Tag", install_section)
         self.assertIn("Candidate-Commit", install_section)
-        self.assertIn("Candidate-SHA256", install_section)
+        self.assertNotIn("Candidate-SHA256", install_section)
         self.assertNotIn(".dmg.sha256", install_section)
         self.assertNotIn(".release-metadata.txt", install_section)
         self.assertIn("finalize-release-dmg.sh", final_section)
         self.assertIn("bait-baidilt identne", final_section)
-        self.assertIn(".dmg.sha256", final_section)
+        self.assertNotIn(".dmg.sha256", final_section)
         self.assertIn(".release-metadata.txt", final_section)
 
     def test_readme_orders_candidate_evidence_before_final_output_verification(self):

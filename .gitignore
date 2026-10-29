@@ -26,7 +26,6 @@ GLOSSARY.md
 DerivedData/
 *.app/
 *.dmg
-*.dmg.sha256
 *.release-metadata.txt
 *.xcuserstate
 xcuserdata/

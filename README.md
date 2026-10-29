@@ -52,22 +52,19 @@ küsida Accessibility-luba uuesti. Kui kontroll on endiselt blokeeritud, eemalda
 vana Automaatkorrektori kirje Accessibility-loendist, lisa uus rakendus, luba
 see ja ava rakendus uuesti.
 
-## Allalaaditud faili kontrollimine
+## Väljalaske metaandmete kontrollimine
 
-Iga finaliseeritud väljalase sisaldab versiooniga DMG-d, selle faili
-`.dmg.sha256` ja faili `.release-metadata.txt`. Laadi kõik kolm samasse kausta
-ning käivita:
+Iga finaliseeritud väljalase sisaldab versiooniga DMG-d ja faili
+`.release-metadata.txt`. Laadi mõlemad samasse kausta ning käivita:
 
 ```sh
-shasum -a 256 -c Automaatkorrektor-v0.1.0.dmg.sha256
 cat Automaatkorrektor-v0.1.0.release-metadata.txt
 git fetch --tags
 git rev-parse 'v0.1.0^{commit}'
 ```
 
-Kontrollsumma käsk peab kuvama `OK`. Metaandmete `Tag` peab vastama väljalaske
-tägile, `Commit` peab võrduma käsu `git rev-parse` väljundiga ja `DMG-SHA256`
-peab võrduma kontrollsummaga. Asenda `v0.1.0` allalaaditud versiooniga.
+Metaandmete `Tag` peab vastama väljalaske tägile ja `Commit` peab võrduma käsu
+`git rev-parse` väljundiga. Asenda `v0.1.0` allalaaditud versiooniga.
 
 ## macOS v0.1 ühilduvus
 
@@ -129,10 +126,10 @@ scripts/build-release-candidate.sh --tag v0.1.0
 
 Käsk ehitab ja kontrollib ad-hoc-allkirjastatud rakenduse ning kirjutab
 kandidaadi DMG, kandidaadi metaandmed ja ootel tõendite raporti kausta
-`.release-evidence/candidates/`. Lõplikku kontrollsummat selles etapis ei looda.
+`.release-evidence/candidates/`.
 
 Kopeeri `release/manual-evidence.example.tsv` faili
-`.release-evidence/manual.tsv`. Asenda kolm `Candidate-*` päiseväärtust
+`.release-evidence/manual.tsv`. Asenda kaks `Candidate-*` päiseväärtust
 kandidaadi metaandmetega ja tee kõik käsikontrollid täpselt selle DMG-ga.
 Finaliseeri alles pärast kõigi ridade läbimist:
 
@@ -142,22 +139,19 @@ scripts/finalize-release-dmg.sh \
   --manual-evidence .release-evidence/manual.tsv
 ```
 
-Finaliseerimine nõuab kandidaadi tägi, commit'i ja SHA-256-ga seotud `READY`
-tõendeid. Kandidaati kontrollitakse uuesti ilma seda ehitamata või selle baite
-muutmata. Seejärel tõstetakse bait-baidilt identne lõplik DMG, kontrollsumma,
-metaandmed ja `READY` raport kausta `.release-evidence/releases/`. Kumbki etapp
-ei laadi GitHub Release'i üles, ei push'i tägi ega muuda välist teenust.
+Finaliseerimine nõuab kandidaadi tägi ja commit'iga seotud `READY` tõendeid.
+Kandidaati kontrollitakse uuesti ilma seda ehitamata või selle baite muutmata.
+Seejärel tõstetakse bait-baidilt identne lõplik DMG, metaandmed ja `READY`
+raport kausta `.release-evidence/releases/`. Kumbki etapp ei laadi GitHub
+Release'i üles, ei push'i tägi ega muuda välist teenust.
 
 Kontrolli finaliseeritud väljundeid pärast edutamist, mitte käsitõendite või
 finaliseerimise eeltingimusena:
 
 ```sh
-shasum -a 256 -c \
-  .release-evidence/releases/Automaatkorrektor-v0.1.0.dmg.sha256
 cat .release-evidence/releases/Automaatkorrektor-v0.1.0.release-metadata.txt
 git rev-parse 'v0.1.0^{commit}'
 ```
 
-Kontrollsumma peab kuvama `OK`. Lõplike metaandmete `Tag` ja `Commit` peavad
-vastama täpsele Git-tägile ja lahendatud commit'ile. `DMG-SHA256` peab võrduma
-kontrollsumma ning kandidaadi metaandmete `Candidate-SHA256` väärtusega.
+Lõplike metaandmete `Tag` ja `Commit` peavad vastama täpsele Git-tägile ja
+lahendatud commit'ile.

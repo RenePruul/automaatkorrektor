@@ -6,7 +6,7 @@ või raportisse.
 
 Esmalt loo kandidaat käsuga `scripts/build-release-candidate.sh --tag TAG`.
 Kopeeri `release/manual-evidence.example.tsv` väljapoole Giti jälgimist ja
-asenda kolm `Candidate-*` päise kohatäitjat loodud faili
+asenda kaks `Candidate-*` päise kohatäitjat loodud faili
 `.candidate-metadata.txt` täpsete väärtustega. Asenda rea `PENDING` olek alles
 pärast selle kontrollimist täpselt sama kandidaadiga. Seejärel käivita:
 
@@ -26,12 +26,10 @@ kontrolli jaotist.
 Tee see kontroll skriptiga `scripts/build-release-candidate.sh` loodud DMG-ga,
 mitte Xcode'ist või DerivedData kaustast käivitatud rakendusega.
 
-1. Ava kandidaadi `.candidate-metadata.txt`. Arvuta kandidaadi DMG SHA-256
-   käsuga `shasum -a 256 KANDIDAADI_DMG_TEE` ja nõua, et see võrduks väärtusega
-   `Candidate-SHA256`. Tõendi-TSV väärtused `Candidate-Tag` ja
-   `Candidate-Commit` peavad võrduma metaandmete väärtustega `Tag` ja `Commit`.
-   Käsk `git rev-parse 'TAG^{commit}'` peab kuvama sama commit'i. Lõplikku
-   kontrollsummat ega väljalaske metaandmeid selles etapis veel pole.
+1. Ava kandidaadi `.candidate-metadata.txt`. Tõendi-TSV väärtused
+   `Candidate-Tag` ja `Candidate-Commit` peavad võrduma metaandmete väärtustega
+   `Tag` ja `Commit`. Käsk `git rev-parse 'TAG^{commit}'` peab kuvama sama
+   commit'i. Lõplikke väljalaske metaandmeid selles etapis veel pole.
 2. Ava DMG, veendu, et see sisaldab ainult oodatud rakendust, ja kopeeri
    Automaatkorrektor kausta `/Applications`.
 3. Käivita paigaldatud rakendus. Kontrolli oodatud Gatekeeperi voogu järgu
@@ -247,13 +245,10 @@ Edutatud DMG peab olema testitud kandidaadiga bait-baidilt identne. Pärast
 edutamist kontrolli lõppfaile kaustas `.release-evidence/releases/`:
 
 ```sh
-shasum -a 256 -c \
-  .release-evidence/releases/Automaatkorrektor-v0.1.0.dmg.sha256
 cat .release-evidence/releases/Automaatkorrektor-v0.1.0.release-metadata.txt
 git rev-parse 'v0.1.0^{commit}'
 ```
 
-Kontrollsumma käsk peab kuvama `OK`. Lõplike metaandmete `Tag` ja `Commit`
-peavad vastama täpsele Git-tägile ja lahendatud commit'ile. `DMG-SHA256` peab
-võrduma nii kontrollsummafaili kui kandidaadi salvestatud `Candidate-SHA256`
-väärtusega. Väljalaskejärgne kontroll ei muuda ega lisa käsitõendeid.
+Lõplike metaandmete `Tag` ja `Commit` peavad vastama täpsele Git-tägile ja
+lahendatud commit'ile. Väljalaskejärgne kontroll ei muuda ega lisa
+käsitõendeid.

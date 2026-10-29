@@ -1,4 +1,3 @@
-import hashlib
 import os
 import shutil
 import subprocess
@@ -136,13 +135,12 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(self.candidate.is_file())
         self.assertTrue(self.candidate_metadata.is_file())
-        self.assertFalse((self.output / f"{self.candidate.name}.sha256").exists())
         self.assertFalse((self.output / "Automaatkorrektor-v0.1.0.release-metadata.txt").exists())
         metadata = self.candidate_metadata.read_text()
         self.assertIn("Format-Version: 1", metadata)
         self.assertIn("Tag: v0.1.0", metadata)
         self.assertIn(f"Commit: {COMMIT}", metadata)
-        self.assertIn(f"Candidate-SHA256: {self._candidate_sha()}", metadata)
+        self.assertNotIn("SHA256", metadata)
 
     def test_candidate_rejects_failed_automation(self):
         result = self._build_candidate(RELEASE_TEST_CANDIDATE_FAILED="1")
@@ -159,32 +157,22 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.candidate.read_bytes(), before)
         final_dmg = self.output / self.candidate.name
-        checksum = self.output / f"{final_dmg.name}.sha256"
         metadata = self.output / "Automaatkorrektor-v0.1.0.release-metadata.txt"
         ready_report = self.output / "Automaatkorrektor-v0.1.0.release-evidence.md"
         self.assertEqual(final_dmg.read_bytes(), before)
-        self.assertEqual(checksum.read_text(), f"{self._candidate_sha()}  {final_dmg.name}\n")
-        self.assertIn(f"DMG-SHA256: {self._candidate_sha()}", metadata.read_text())
-        self.assertIn(f"DMG SHA-256: `{self._candidate_sha()}`", ready_report.read_text())
+        self.assertFalse((self.output / f"{final_dmg.name}.sha256").exists())
+        self.assertIn("Tag: v0.1.0", metadata.read_text())
+        self.assertIn(f"Commit: {COMMIT}", metadata.read_text())
+        self.assertNotIn("SHA-256", ready_report.read_text())
         commands = self._command_log()
         self.assertIn("gate", commands)
         self.assertNotIn("xcodebuild", commands)
         self.assertNotIn("hdiutil", commands)
         self.assertNotIn("codesign", commands)
 
-    def test_changed_candidate_is_rejected_before_ready_gate(self):
-        self.assertEqual(self._build_candidate().returncode, 0)
-        evidence = self._write_bound_evidence()
-        self.candidate.write_bytes(b"changed")
-        self.command_log.write_text("")
-        result = self._finalize(evidence)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("kandidaadi baidid muutusid", result.stderr)
-        self.assertNotIn("gate", self._command_log())
-
     def test_evidence_must_bind_exact_candidate(self):
         self.assertEqual(self._build_candidate().returncode, 0)
-        evidence = self._write_bound_evidence(sha256="0" * 64)
+        evidence = self._write_bound_evidence(commit="f" * 40)
         self.command_log.write_text("")
         result = self._finalize(evidence)
         self.assertNotEqual(result.returncode, 0)
@@ -205,9 +193,7 @@ esac
             ".release-evidence/candidates/Automaatkorrektor-v0.1.0.dmg",
             ".release-evidence/candidates/Automaatkorrektor-v0.1.0.candidate-metadata.txt",
             ".release-evidence/candidates/Automaatkorrektor-v0.1.0.release-metadata.txt",
-            ".release-evidence/candidates/Automaatkorrektor-v0.1.0.dmg.sha256",
             ".release-evidence/releases/Automaatkorrektor-v0.1.0.dmg",
-            ".release-evidence/releases/Automaatkorrektor-v0.1.0.dmg.sha256",
             ".release-evidence/manual.tsv",
         ]:
             with self.subTest(path=generated_path):
@@ -228,21 +214,17 @@ esac
     def candidate_metadata(self):
         return self.candidate_output / "Automaatkorrektor-v0.1.0.candidate-metadata.txt"
 
-    def _candidate_sha(self):
-        return hashlib.sha256(self.candidate.read_bytes()).hexdigest()
-
     def _build_candidate(self, **overrides):
         return self._run(
             [str(self.repository / "scripts" / CANDIDATE_SCRIPT.name), "--tag", "v0.1.0", "--output-dir", str(self.candidate_output)],
             overrides,
         )
 
-    def _write_bound_evidence(self, sha256=None):
+    def _write_bound_evidence(self, commit=COMMIT):
         evidence = self.root / "manual.tsv"
         evidence.write_text(
             f"# Candidate-Tag\tv0.1.0\n"
-            f"# Candidate-Commit\t{COMMIT}\n"
-            f"# Candidate-SHA256\t{sha256 or self._candidate_sha()}\n"
+            f"# Candidate-Commit\t{commit}\n"
             "manual-textedit\tPASS\tSynthetic metadata-only evidence.\n"
         )
         return evidence

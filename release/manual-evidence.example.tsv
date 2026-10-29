@@ -1,6 +1,5 @@
 # Candidate-Tag	ASENDA_KANDIDAADI_TAGIGA
 # Candidate-Commit	ASENDA_KANDIDAADI_COMMITIGA
-# Candidate-SHA256	ASENDA_KANDIDAADI_SHA256_VÄÄRTUSEGA
 # id	olek	tõendimärkus (ainult metaandmed; mitte kunagi valitud tekst)
 integration-native-host	PENDING	Käivita pakitud AX-testirakendus ja kinnita, et tootmisrakendus lükkab selle hosti tagasi.
 integration-permission	PENDING	Anna ja tühista päris Accessibility-luba.

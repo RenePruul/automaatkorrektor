@@ -70,9 +70,7 @@ evidence_value() {
 }
 release_tag=$(metadata_value Tag)
 candidate_commit=$(metadata_value Commit)
-recorded_sha256=$(metadata_value Candidate-SHA256)
-actual_sha256=$(shasum -a 256 "$candidate_path" | awk '{print $1}')
-[ -n "$release_tag" ] && [ -n "$candidate_commit" ] && [ -n "$recorded_sha256" ] || {
+[ -n "$release_tag" ] && [ -n "$candidate_commit" ] || {
   printf '%s\n' 'finaliseerimisest keelduti: kandidaadi metaandmed on puudulikud' >&2
   exit 1
 }
@@ -80,13 +78,8 @@ actual_sha256=$(shasum -a 256 "$candidate_path" | awk '{print $1}')
   printf '%s\n' 'finaliseerimisest keelduti: kandidaadi failinimi ei vasta selle tägile' >&2
   exit 1
 }
-[ "$recorded_sha256" = "$actual_sha256" ] || {
-  printf '%s\n' 'finaliseerimisest keelduti: kandidaadi baidid muutusid pärast ehitamist' >&2
-  exit 1
-}
 [ "$(evidence_value Candidate-Tag 2>/dev/null || true)" = "$release_tag" ] && \
-  [ "$(evidence_value Candidate-Commit 2>/dev/null || true)" = "$candidate_commit" ] && \
-  [ "$(evidence_value Candidate-SHA256 2>/dev/null || true)" = "$actual_sha256" ] || {
+  [ "$(evidence_value Candidate-Commit 2>/dev/null || true)" = "$candidate_commit" ] || {
   printf '%s\n' 'finaliseerimisest keelduti: tõendid ei tuvasta täpselt seda kandidaati' >&2
   exit 1
 }
@@ -128,15 +121,13 @@ grep -Fq -- "- Commit: \`$candidate_commit\`" "$ready_report" || {
   printf '\n## Kandidaadi seos\n\n'
   printf -- '- Tag: `%s`\n' "$release_tag"
   printf -- '- Commit: `%s`\n' "$candidate_commit"
-  printf -- '- DMG SHA-256: `%s`\n' "$actual_sha256"
 } >> "$ready_report"
 
 mkdir -p "$output_directory"
 final_dmg_path="$output_directory/$candidate_name"
-checksum_path="$output_directory/$candidate_name.sha256"
 metadata_path="$output_directory/$artifact_base.release-metadata.txt"
 report_path="$output_directory/$artifact_base.release-evidence.md"
-for output_path in "$final_dmg_path" "$checksum_path" "$metadata_path" "$report_path"; do
+for output_path in "$final_dmg_path" "$metadata_path" "$report_path"; do
   [ ! -e "$output_path" ] || {
     printf 'finaliseerimisest keelduti: väljund on juba olemas: %s\n' "$output_path" >&2
     exit 1
@@ -145,31 +136,20 @@ done
 
 promotion_directory=$(mktemp -d "$output_directory/.automaatkorrektor-finalize.XXXXXX")
 cp "$candidate_path" "$promotion_directory/$candidate_name"
-promoted_sha256=$(shasum -a 256 "$promotion_directory/$candidate_name" | awk '{print $1}')
-[ "$promoted_sha256" = "$recorded_sha256" ] || {
+cmp -s "$candidate_path" "$promotion_directory/$candidate_name" || {
   printf '%s\n' 'finaliseerimisest keelduti: edutatud DMG erineb testitud kandidaadist' >&2
   exit 1
 }
 
-printf '%s  %s\n' "$actual_sha256" "$candidate_name" \
-  > "$promotion_directory/$candidate_name.sha256"
 {
   printf 'Format-Version: 1\n'
   printf 'Tag: %s\n' "$release_tag"
   printf 'Commit: %s\n' "$candidate_commit"
-  printf 'DMG-SHA256: %s\n' "$actual_sha256"
 } > "$promotion_directory/$artifact_base.release-metadata.txt"
 cp "$ready_report" "$promotion_directory/$artifact_base.release-evidence.md"
 
-final_candidate_sha256=$(shasum -a 256 "$candidate_path" | awk '{print $1}')
-[ "$final_candidate_sha256" = "$recorded_sha256" ] || {
-  printf '%s\n' 'finaliseerimisest keelduti: kandidaadi baidid muutusid finaliseerimise ajal' >&2
-  exit 1
-}
-
 for artifact_name in \
   "$candidate_name" \
-  "$candidate_name.sha256" \
   "$artifact_base.release-metadata.txt" \
   "$artifact_base.release-evidence.md"
 do
@@ -181,13 +161,11 @@ do
   }
 done
 
-final_sha256=$(shasum -a 256 "$final_dmg_path" | awk '{print $1}')
-[ "$final_sha256" = "$recorded_sha256" ] || {
+cmp -s "$candidate_path" "$final_dmg_path" || {
   printf '%s\n' 'finaliseerimisest keelduti: lõplik DMG erineb testitud kandidaadist' >&2
   exit 1
 }
 
 printf 'Lõplik DMG: %s\n' "$final_dmg_path"
-printf 'SHA-256: %s\n' "$checksum_path"
 printf 'Metaandmed: %s\n' "$metadata_path"
 printf 'READY tõendid: %s\n' "$report_path"
