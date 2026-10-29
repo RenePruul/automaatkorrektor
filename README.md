@@ -4,6 +4,17 @@ Automaatkorrektor kontrollib, kas kasutaja selgelt valitud tekst on eesti
 keeles. Rakendus ei jälgi teksti taustal ega paranda ega asenda teksti. Iga
 kontroll algab menüüriba toimingust või seadistatud kiirklahvist.
 
+## Arendamine
+
+Projekt vajab Swift 6.2 tööriistu ehk Xcode 26 või uuemat. Kui Xcode pole
+süsteemis aktiivseks valitud, määra enne käske selle asukoht:
+
+```sh
+export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+```
+
+Seejärel saab testid käivitada käsuga `swift test`.
+
 ## Keeleteenus
 
 Automaatkorrektor on eraldi töötava ühilduva keeleteenuse klient. Vaikimisi
