@@ -200,9 +200,9 @@ run_check 'Giti tühimärgid' 120 git diff --check
 run_check 'puhas Giti tööpuu' 120 /bin/sh -c \
   'test -z "$(git status --porcelain --untracked-files=normal)"'
 if [ "$last_check_status" = PASS ]; then
-  tree_state=puhas
+  tree_state=clean
 else
-  tree_state=muudetud
+  tree_state=dirty
 fi
 run_check 'võrguühenduseta keele-API fixture-testid' 300 \
   python3 -m unittest discover -s Tests/ReleaseEvidenceTests -p 'test_*.py'

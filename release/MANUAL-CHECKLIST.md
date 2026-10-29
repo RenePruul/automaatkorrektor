@@ -113,9 +113,9 @@ scripts/run-native-ax-harness.sh
 
 1. Anna rakendusele **AX Integration Harness** süsteemiseadetes
    Accessibility-luba. Ära kasuta keskkonnamuutujat ega muuda tootmisrakendust.
-2. Iga testirea puhul klõpsa **Arm** ja seejärel viie sekundi jooksul rakenduses
-   **Native Text Control Host** vastavat nuppu **Prepare**. Host fokuseerib
-   juhtelemendi ja valib ainult sünteetilise prooviteksti.
+2. Iga testirea puhul klõpsa **Käivita kontroll** ja seejärel viie sekundi
+   jooksul rakenduses **Native Text Control Host** vastavat nuppu **Valmista
+   ette**. Host fokuseerib juhtelemendi ja valib ainult sünteetilise prooviteksti.
 3. Nõua ainult metaandmetega `PASS` tulemust muudetavale `NSTextField`,
    `NSSearchField` ja `NSTextView` väljale.
 4. Nõua ainult metaandmetega `PASS` tulemust kirjutuskaitstud, keelatud ja

@@ -19,7 +19,7 @@ final class NativeTextControlHost: NSObject, NSApplicationDelegate {
       backing: .buffered,
       defer: false
     )
-    window.title = "Automaatkorrektor native text-control harness"
+    window.title = "Automaatkorrektori tekstijuhtelementide testirakendus"
     window.contentView = makeFixtureView(in: window)
     window.center()
     window.makeKeyAndOrderFront(nil)
@@ -36,7 +36,7 @@ final class NativeTextControlHost: NSObject, NSApplicationDelegate {
 
     let instructions = NSTextField(
       wrappingLabelWithString: """
-        Test-only synthetic controls. After arming AX Integration Harness, click the matching Prepare button. It focuses the control and selects its fixture text without using the clipboard.
+        Ainult testimiseks mõeldud sünteetilised juhtelemendid. Pärast AX-integratsiooni testirakenduses kontrolli käivitamist vajuta vastavat nuppu „Valmista ette“. See fokuseerib juhtelemendi ja valib sünteetilise teksti lõikelauda kasutamata.
         """)
     instructions.maximumNumberOfLines = 0
     instructions.preferredMaxLayoutWidth = 570
@@ -75,7 +75,7 @@ final class NativeTextControlHost: NSObject, NSApplicationDelegate {
 
     let fixtures: [(String, NSView, () -> Void)] = [
       (
-        "Editable NSTextField", editableField,
+        "Muudetav NSTextField", editableField,
         {
           window.makeFirstResponder(editableField)
           editableField.selectText(nil)
@@ -89,21 +89,21 @@ final class NativeTextControlHost: NSObject, NSApplicationDelegate {
         }
       ),
       (
-        "Editable NSTextView", textArea,
+        "Muudetav NSTextView", textArea,
         {
           window.makeFirstResponder(textView)
           textView.setSelectedRange(NSRange(location: 0, length: textView.string.count))
         }
       ),
       (
-        "Read-only NSTextField", readOnlyField,
+        "Kirjutuskaitstud NSTextField", readOnlyField,
         {
           window.makeFirstResponder(readOnlyField)
           readOnlyField.selectText(nil)
         }
       ),
       (
-        "Disabled NSTextField", disabledField,
+        "Keelatud NSTextField", disabledField,
         {
           disabledField.isEnabled = true
           window.makeFirstResponder(disabledField)
@@ -114,7 +114,7 @@ final class NativeTextControlHost: NSObject, NSApplicationDelegate {
         }
       ),
       (
-        "NSSecureTextField — must never be read", secureField,
+        "NSSecureTextField — sisu ei tohi kunagi lugeda", secureField,
         {
           window.makeFirstResponder(secureField)
           secureField.selectText(nil)
@@ -126,7 +126,9 @@ final class NativeTextControlHost: NSObject, NSApplicationDelegate {
       stack.addArrangedSubview(NSTextField(labelWithString: title))
       stack.addArrangedSubview(control)
       control.widthAnchor.constraint(equalToConstant: 540).isActive = true
-      stack.addArrangedSubview(FixtureActionButton(title: "Prepare \(title)", action: prepare))
+      stack.addArrangedSubview(
+        FixtureActionButton(title: "Valmista ette: \(title)", action: prepare)
+      )
     }
 
     return stack

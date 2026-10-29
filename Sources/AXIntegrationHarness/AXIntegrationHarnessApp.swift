@@ -29,7 +29,7 @@ final class AXIntegrationHarnessApp: NSObject, NSApplicationDelegate {
       backing: .buffered,
       defer: false
     )
-    window.title = "AX integration harness — test only"
+    window.title = "AX-integratsiooni testirakendus"
     window.contentView = makeContentView()
     window.center()
     window.makeKeyAndOrderFront(nil)
@@ -48,26 +48,26 @@ final class AXIntegrationHarnessApp: NSObject, NSApplicationDelegate {
     stack.spacing = 12
     stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
 
-    let title = NSTextField(labelWithString: "Real Accessibility integration")
+    let title = NSTextField(labelWithString: "Päris Accessibility-integratsioon")
     title.font = .boldSystemFont(ofSize: 18)
     stack.addArrangedSubview(title)
 
     let instructions = NSTextField(
       wrappingLabelWithString: """
-        Grant Accessibility access to this harness. For each check, press Arm, then within five seconds click the matching Prepare button in NativeTextControlHost. The harness uses the real SystemAXReader, never contacts a network service, and displays only metadata-only PASS/FAIL.
+        Anna sellele testirakendusele Accessibility-luba. Vajuta iga kontrolli jaoks nuppu „Käivita kontroll“ ja seejärel viie sekundi jooksul rakenduse NativeTextControlHost vastavat nuppu „Valmista ette“. Testirakendus kasutab päris SystemAXReaderit, ei võta kunagi ühendust võrguteenusega ning kuvab ainult metaandmetega PASS/FAIL-tulemuse.
         """)
     instructions.maximumNumberOfLines = 0
     instructions.preferredMaxLayoutWidth = 570
     stack.addArrangedSubview(instructions)
 
-    addButton("Editable NSTextField", expectation: .readable, to: stack)
+    addButton("Muudetav NSTextField", expectation: .readable, to: stack)
     addButton("NSSearchField", expectation: .readable, to: stack)
-    addButton("Editable NSTextView", expectation: .readable, to: stack)
-    addButton("Read-only NSTextField", expectation: .readOnly, to: stack)
-    addButton("Disabled NSTextField", expectation: .disabled, to: stack)
+    addButton("Muudetav NSTextView", expectation: .readable, to: stack)
+    addButton("Kirjutuskaitstud NSTextField", expectation: .readOnly, to: stack)
+    addButton("Keelatud NSTextField", expectation: .disabled, to: stack)
     addButton("NSSecureTextField", expectation: .secure, to: stack)
 
-    let resultLabel = NSTextField(wrappingLabelWithString: "Metadata-only result: not run")
+    let resultLabel = NSTextField(wrappingLabelWithString: "Metaandmetega tulemus: käivitamata")
     resultLabel.maximumNumberOfLines = 0
     resultLabel.preferredMaxLayoutWidth = 570
     stack.addArrangedSubview(resultLabel)
@@ -81,7 +81,7 @@ final class AXIntegrationHarnessApp: NSObject, NSApplicationDelegate {
     to stack: NSStackView
   ) {
     let button = NSButton(
-      title: "Arm: \(title)",
+      title: "Käivita kontroll: \(title)",
       target: self,
       action: #selector(runCheck(_:))
     )
@@ -96,13 +96,14 @@ final class AXIntegrationHarnessApp: NSObject, NSApplicationDelegate {
     else { return }
 
     activeTask?.cancel()
-    resultLabel?.stringValue = "Metadata-only result: armed; focus the matching host control"
+    resultLabel?.stringValue =
+      "Metaandmetega tulemus: kontroll käivitatud; fokuseeri vastav testvälja juhtelement"
     activeTask = Task { [weak self] in
       do {
         try await Task.sleep(for: .seconds(5))
         try Task.checkCancellation()
         _ = try await self?.reader.readSelectedText()
-        self?.showResult(expectation == .readable, detail: "selection accepted")
+        self?.showResult(expectation == .readable, detail: "valik vastu võetud")
       } catch is CancellationError {
         return
       } catch let error as AccessibilitySelectionError {
@@ -111,7 +112,7 @@ final class AXIntegrationHarnessApp: NSObject, NSApplicationDelegate {
           detail: Self.metadataName(for: error)
         )
       } catch {
-        self?.showResult(false, detail: "unexpected error category")
+        self?.showResult(false, detail: "ootamatu veakategooria")
       }
       NSApplication.shared.activate(ignoringOtherApps: true)
     }
@@ -119,7 +120,7 @@ final class AXIntegrationHarnessApp: NSObject, NSApplicationDelegate {
 
   private func showResult(_ passed: Bool, detail: String) {
     resultLabel?.stringValue =
-      "Metadata-only result: \(passed ? "PASS" : "FAIL") — \(detail)"
+      "Metaandmetega tulemus: \(passed ? "PASS" : "FAIL") — \(detail)"
   }
 
   private static func matches(
@@ -137,18 +138,18 @@ final class AXIntegrationHarnessApp: NSObject, NSApplicationDelegate {
 
   private static func metadataName(for error: AccessibilitySelectionError) -> String {
     switch error {
-    case .permissionRequired: "permission required"
-    case .noFocusedControl: "no focused control"
-    case .protectedContent: "protected content rejected"
-    case .unsupportedTextField: "unsupported or disabled control rejected"
-    case .readOnly: "read-only control rejected"
-    case .noSelection: "no selection"
-    case .invalidSelection: "invalid selection"
-    case .selectionTooLarge: "selection too large"
-    case .focusChanged: "focus changed"
-    case .targetUnavailable: "target unavailable"
-    case .unsupportedApplication: "application rejected"
-    case .unknown: "unknown metadata error"
+    case .permissionRequired: "luba on vajalik"
+    case .noFocusedControl: "fokuseeritud juhtelement puudub"
+    case .protectedContent: "kaitstud sisu lükati tagasi"
+    case .unsupportedTextField: "toetamata või keelatud juhtelement lükati tagasi"
+    case .readOnly: "kirjutuskaitstud juhtelement lükati tagasi"
+    case .noSelection: "valik puudub"
+    case .invalidSelection: "vigane valik"
+    case .selectionTooLarge: "valik on liiga suur"
+    case .focusChanged: "fookus muutus"
+    case .targetUnavailable: "sihtkoht pole saadaval"
+    case .unsupportedApplication: "rakendus lükati tagasi"
+    case .unknown: "tundmatu metaandmete viga"
     }
   }
 }

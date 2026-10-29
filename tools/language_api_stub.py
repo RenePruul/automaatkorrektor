@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Offline, loopback-only language API fixture for macOS release checks.
+"""Võrguühenduseta loopback-keele-API teststub macOS-i väljalaskekontrollidele.
 
-This is test infrastructure, not a language detector. Request bodies are parsed
-only long enough to answer one request and are never retained or logged.
+See on testitaristu, mitte keeletuvastaja. Päringukeha töödeldakse ainult
+vastamiseks vajalikul ajal ning seda ei säilitata ega logita.
 """
 
 from __future__ import annotations
@@ -36,16 +36,19 @@ class Scenario:
 
     def __post_init__(self) -> None:
         if self.verdict not in VERDICTS:
-            raise ValueError("stub verdict must be jah, ei, or ebakindel")
+            raise ValueError("teststubi otsus peab olema jah, ei või ebakindel")
         if self.response_mode not in RESPONSE_MODES:
-            raise ValueError("unsupported stub response mode")
+            raise ValueError("teststubi vastuserežiimi ei toetata")
         if not 0 <= self.delay_seconds <= 30:
-            raise ValueError("stub delay must be between 0 and 30 seconds")
+            raise ValueError("teststubi viivitus peab olema 0 kuni 30 sekundit")
         if self.canary_sha256 is not None:
             if len(self.canary_sha256) != 64 or any(
                 character not in "0123456789abcdef" for character in self.canary_sha256
             ):
-                raise ValueError("stub canary SHA-256 must be 64 lowercase hex characters")
+                raise ValueError(
+                    "teststubi privaatsusnäite SHA-256 peab koosnema 64 "
+                    "väiketähelisest kuueteistkümnendsüsteemi märgist"
+                )
 
 
 class FixtureState:
@@ -97,8 +100,8 @@ class FixtureHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def log_message(self, format: str, *args: object) -> None:
-        # BaseHTTPRequestHandler includes paths and peer data in its default log.
-        # The fixture emits its own allowlisted metadata instead.
+        # BaseHTTPRequestHandler lisab vaikelogisse teed ja vastaspoole andmed.
+        # Teststub väljastab selle asemel ainult lubatud metaandmed.
         return
 
     def do_POST(self) -> None:
@@ -200,7 +203,7 @@ class FixtureHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError):
-            # Expected when the client cancels a delayed request.
+            # Oodatud, kui klient katkestab viivitusega päringu.
             return
 
 
@@ -229,19 +232,22 @@ def scenario_from_environment() -> tuple[Scenario, int]:
     canary_sha256 = os.environ.get("AUTOMAATKORREKTOR_STUB_CANARY_SHA256")
     port = int(os.environ.get("AUTOMAATKORREKTOR_STUB_PORT", str(DEFAULT_PORT)))
     if not 1 <= port <= 65535:
-        raise ValueError("stub port must be between 1 and 65535")
+        raise ValueError("teststubi port peab olema 1 kuni 65535")
     return Scenario(verdict, response_mode, delay_seconds, canary_sha256), port
 
 
 def main() -> int:
     if len(sys.argv) != 1:
-        print("configuration uses environment variables; command arguments are rejected", file=sys.stderr)
+        print(
+            "seadistamiseks kasutatakse keskkonnamuutujaid; käsuargumente ei lubata",
+            file=sys.stderr,
+        )
         return 64
     try:
         scenario, port = scenario_from_environment()
         server = create_server(scenario=scenario, port=port)
     except (OSError, ValueError) as error:
-        print(f"stub configuration error: {error}", file=sys.stderr)
+        print(f"teststubi seadistusviga: {error}", file=sys.stderr)
         return 64
 
     emit_json(

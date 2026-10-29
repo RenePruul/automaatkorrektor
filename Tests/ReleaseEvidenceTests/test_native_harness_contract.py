@@ -65,7 +65,9 @@ class NativeHarnessContractTests(unittest.TestCase):
         for value in forbidden:
             self.assertNotIn(value, harness)
         self.assertNotIn("ProcessInfo", harness)
-        self.assertIn("Metadata-only result", harness)
+        self.assertIn("Metaandmetega tulemus", harness)
+        self.assertIn("Käivita kontroll", harness)
+        self.assertNotIn("Metadata-only result", harness)
         self.assertNotIn("selectedText.value", harness)
 
     def test_operator_checklist_separates_production_and_test_policies(self):

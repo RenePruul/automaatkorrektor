@@ -153,8 +153,8 @@ elapsed_seconds=$(($(date +%s) - started_at))
 
 test "$timeout_exit_code" -eq 2
 test "$elapsed_seconds" -lt 5
-grep -Fq 'TIMEOUT: strict Swift format exceeded 1s; terminating process tree.' "$timeout_log"
-grep -Fq 'FAIL: strict Swift format (timed out after 1s)' "$timeout_log"
+grep -Fq 'AJALIMIIT: range Swift-vormindus ületas 1s; protsessipuu lõpetatakse.' "$timeout_log"
+grep -Fq 'FAIL: range Swift-vormindus (ajalimiit 1s)' "$timeout_log"
 test -s "$child_pid_file"
 hanging_child_pid=$(cat "$child_pid_file")
 cleanup_attempt=0
@@ -163,12 +163,12 @@ while kill -0 "$hanging_child_pid" 2>/dev/null && [ "$cleanup_attempt" -lt 20 ];
   cleanup_attempt=$((cleanup_attempt + 1))
 done
 if kill -0 "$hanging_child_pid" 2>/dev/null; then
-  printf 'hanging child process %s survived the release-gate timeout\n' \
+  printf 'hangunud alamprotsess %s jäi pärast väljalaskevärava ajalimiiti tööle\n' \
     "$hanging_child_pid" >&2
   exit 1
 fi
 
-printf '%s\n' 'release gate timeout contract tests passed'
+printf '%s\n' 'väljalaskevärava ajalimiidi lepingutestid läbitud'
 
 assert_process_stopped() {
   stopped_process_id=$1
@@ -178,7 +178,7 @@ assert_process_stopped() {
     stop_attempt=$((stop_attempt + 1))
   done
   if kill -0 "$stopped_process_id" 2>/dev/null; then
-    printf 'process %s survived release-gate signal cleanup\n' \
+    printf 'protsess %s jäi pärast väljalaskevärava signaalipuhastust tööle\n' \
       "$stopped_process_id" >&2
     exit 1
   fi
@@ -235,8 +235,8 @@ run_signal_cleanup_case() {
     assert_process_stopped "$tracked_process_id"
   done
   test ! -e "$signal_report"
-  if grep -Fq '==> Git whitespace' "$signal_output"; then
-    printf 'release gate continued after %s\n' "$signal_name" >&2
+  if grep -Fq '==> Giti tühimärgid' "$signal_output"; then
+    printf 'väljalaskevärav jätkas pärast signaali %s\n' "$signal_name" >&2
     exit 1
   fi
   set -- "$signal_tmp"/automaatkorrektor-release-gate.*
@@ -247,4 +247,4 @@ run_signal_cleanup_case TERM 143
 run_signal_cleanup_case INT 130
 run_signal_cleanup_case HUP 129
 
-printf '%s\n' 'release gate signal cleanup contract tests passed'
+printf '%s\n' 'väljalaskevärava signaalipuhastuse lepingutestid läbitud'

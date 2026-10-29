@@ -48,6 +48,12 @@ class RunningStub:
 
 
 class LanguageAPIStubTests(unittest.TestCase):
+    def test_configuration_errors_are_estonian(self):
+        with self.assertRaisesRegex(ValueError, "otsus peab olema jah, ei või ebakindel"):
+            language_api_stub.Scenario(verdict="maybe")
+        with self.assertRaisesRegex(ValueError, "vastuserežiimi ei toetata"):
+            language_api_stub.Scenario(response_mode="unknown")
+
     def test_binds_only_to_ipv4_loopback(self):
         with RunningStub(language_api_stub.Scenario()) as stub:
             self.assertEqual(stub.server.server_address[0], "127.0.0.1")
